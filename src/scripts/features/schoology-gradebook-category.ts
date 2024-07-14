@@ -85,13 +85,7 @@ export class SchoologyGradebookCategory {
             this._elem_maxPoints!.textContent = ` / ${this.maxPoints}`;
 
             this._elem_letterGrade!.textContent = this.schoologyAwardedGrade;
-            this._elem_letterGrade!.title = `S+ calculated this grade as ${this.course.getLetterGrade(
-                this.gradePercent!
-            )} (${
-                this.gradePercentageDetailsString
-            })\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${
-                this.course.gradingScaleString
-            }\nTo change this grading scale, find 'Course Options' on the page for this course`;
+            this._elem_letterGrade!.title = `S+ calculated this grade as ${this.letterGradeString}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.course.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
         }
 
         this.period.render();
@@ -129,21 +123,27 @@ export class SchoologyGradebookCategory {
         return (this.points * 100) / this.maxPoints;
     }
 
+    public get letterGradeString() {
+        if (!this.gradePercent) return "—";
+        let letterGrade = this.course.getLetterGrade(this.gradePercent);
+        return `${letterGrade} (${this.gradePercentageString})`;
+    }
+
     public get gradePercentageString() {
         if (this.isLoading) return "LOADING";
         if (this.failedToLoad) return "ERR";
         if (this.gradePercent === undefined) return "—";
         if (this.gradePercent === Number.POSITIVE_INFINITY) return "EC";
-        return `${Math.round(this.gradePercent)}%`;
+        return `${Math.round(this.gradePercent * 100) / 100}%`;
     }
 
     public get gradePercentageDetailsString() {
         if (this.isLoading) return "Loading grade percentage...";
         if (this.failedToLoad) return "Failed to load grade percentage";
-        if (this.gradePercent === undefined) return undefined;
+        if (this.gradePercent === undefined) return "—";
         if (this.gradePercent === Number.POSITIVE_INFINITY)
             return `${this.points} points of Extra Credit`;
-        return `${this.gradePercent.toFixed(2)}%`;
+        return `${this.gradePercent}%`;
     }
 
     public toString() {

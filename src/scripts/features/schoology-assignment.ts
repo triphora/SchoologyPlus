@@ -208,10 +208,10 @@ export class SchoologyAssignment {
     public get gradePercentageDetailsString() {
         if (this.isLoading) return "Loading grade percentage...";
         if (this.failedToLoad) return "Failed to load grade percentage";
-        if (this.gradePercent === undefined) return undefined;
+        if (this.gradePercent === undefined) return "—";
         if (this.gradePercent === Number.POSITIVE_INFINITY)
             return `${this.points} points of Extra Credit`;
-        return `${this.gradePercent.toFixed(2)}%`;
+        return `${this.gradePercent}%`;
     }
 
     public toString() {

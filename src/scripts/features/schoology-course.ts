@@ -90,11 +90,11 @@ export class SchoologyCourse {
 
         if (letterGrade === null) {
             elem.textContent = this.gradePercentageString;
-            elem.title = this.gradePercentageDetailsString!;
+            elem.title = this.gradePercentageDetailsString;
             return;
         }
 
-        elem.textContent = `${letterGrade} (${this.gradePercentageString})`;
+        elem.textContent = this.letterGradeString;
         elem.title = `${this.gradePercentageDetailsString}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
     }
 
@@ -131,15 +131,15 @@ export class SchoologyCourse {
         if (this.failedToLoad) return "ERR";
         if (this.gradePercent === undefined) return "—";
         if (this.gradePercent === Number.POSITIVE_INFINITY) return "EC";
-        return `${this.gradePercent.toFixed(1)}%`;
+        return `${Math.round(this.gradePercent * 100) / 100}%`;
     }
 
     public get gradePercentageDetailsString() {
         if (this.isLoading) return "Loading grade percentage...";
         if (this.failedToLoad) return "Failed to load grade percentage";
-        if (this.gradePercent === undefined) return undefined;
+        if (this.gradePercent === undefined) return "—";
         if (this.gradePercent === Number.POSITIVE_INFINITY) return "Extra Credit";
-        return `${this.gradePercent.toFixed(3)}%`;
+        return `${this.gradePercent}%`;
     }
 
     public toString() {
@@ -184,6 +184,12 @@ export class SchoologyCourse {
 
     public get gradingScale() {
         return getGradingScale(this.id);
+    }
+
+    public get letterGradeString() {
+        if (!this.gradePercent) return "—";
+        let letterGrade = this.getLetterGrade(this.gradePercent);
+        return `${letterGrade} (${this.gradePercentageString})`;
     }
 
     public get gradingScaleString() {
