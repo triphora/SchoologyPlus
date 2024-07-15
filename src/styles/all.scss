@@ -1559,3 +1559,35 @@ Should not be shown
         visibility: hidden;
     }
 }
+
+.splus-what-if-grades-v2 {
+    .splus-grades-edit-indicator {
+        cursor: pointer;
+        vertical-align: top;
+        position: absolute;
+        bottom: 0px;
+        padding-left: 2px;
+    }
+
+    &:not(.splus-what-if-grades-v2-enabled) {
+        .splus-grades-assignment {
+            &.splus-grades-has-exception {
+                .rounded-grade {
+                    display: none;
+                }
+            }
+
+            .splus-grades-edit-indicator {
+                display: none;
+            }
+        }
+    }
+
+    &.splus-what-if-grades-v2-enabled {
+        .splus-grades-assignment {
+            .exception-icon {
+                display: none;
+            }
+        }
+    }
+}

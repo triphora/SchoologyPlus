@@ -1,5 +1,5 @@
 import { EXTENSION_NAME } from "../utils/constants";
-import { createElement, getTextNodeContent } from "../utils/dom";
+import { conditionalClass, createElement, getTextNodeContent } from "../utils/dom";
 import { SchoologyCourse } from "./schoology-course";
 import { SchoologyGradebookCategory } from "./schoology-gradebook-category";
 
@@ -10,6 +10,8 @@ export class SchoologyGradebookPeriod {
     public weight: number;
 
     constructor(public course: SchoologyCourse, public element: HTMLElement) {
+        this.element.classList.add("splus-grades-period");
+
         this.id = this.element.dataset.id!;
         this.name = getTextNodeContent(
             this.element.querySelector<HTMLAnchorElement>(".title-column .title")!
@@ -77,6 +79,11 @@ export class SchoologyGradebookPeriod {
     }
 
     public async render() {
+        conditionalClass(this.element, this.isLoading, "splus-grades-loading");
+        conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
+        conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
+        conditionalClass(this.element, this.isModified, "splus-grades-modified");
+
         if (!this.isLoading) {
             if (!this.categoriesAreWeighted) {
                 this._elem_totalPoints!.textContent = this.points.toString();
@@ -105,6 +112,10 @@ export class SchoologyGradebookPeriod {
         return this.categories.some(category => category.failedToLoad);
     }
 
+    public get isModified() {
+        return this.categories.some(category => category.isModified);
+    }
+
     public get points(): number {
         if (this.categoriesAreWeighted) return this.gradePercent ?? 0;
 
@@ -125,18 +136,48 @@ export class SchoologyGradebookPeriod {
         }, 0);
     }
 
+    public get whatIfPoints(): number {
+        if (this.categoriesAreWeighted) return this.whatIfGradePercent ?? 0;
+
+        return this.categories.reduce((acc, category) => {
+            if (category.weight === undefined) return acc + category.whatIfPoints;
+
+            return acc + category.whatIfPoints * category.weight;
+        }, 0);
+    }
+
+    public get whatIfMaxPoints() {
+        if (this.categoriesAreWeighted) return 100;
+
+        return this.categories.reduce((acc, category) => {
+            if (category.weight === undefined) return acc + category.whatIfMaxPoints;
+
+            return acc + category.whatIfMaxPoints * category.weight;
+        }, 0);
+    }
+
     public get gradePercent() {
+        return this.calculateGradePercent(false);
+    }
+
+    public get whatIfGradePercent() {
+        return this.calculateGradePercent(true);
+    }
+
+    private calculateGradePercent(whatIf: boolean) {
         if (this.categoriesAreWeighted) {
             let weightedPoints = this.categories.reduce((acc, category) => {
                 if (category.weight === undefined) return acc;
 
-                return acc + category.points * category.weight;
+                return acc + (whatIf ? category.whatIfPoints : category.points) * category.weight;
             }, 0);
 
             let weightedMaxPoints = this.categories.reduce((acc, category) => {
                 if (category.weight === undefined) return acc;
 
-                return acc + category.maxPoints * category.weight;
+                return (
+                    acc + (whatIf ? category.whatIfMaxPoints : category.maxPoints) * category.weight
+                );
             }, 0);
 
             if (weightedPoints === 0 && weightedMaxPoints === 0) return undefined;
@@ -144,6 +185,13 @@ export class SchoologyGradebookPeriod {
             if (weightedPoints === 0) return 0;
 
             return (weightedPoints * 100) / weightedMaxPoints;
+        }
+        if (whatIf) {
+            if (this.whatIfMaxPoints === 0 && this.whatIfPoints === 0) return undefined;
+            if (this.whatIfMaxPoints === 0) return Number.POSITIVE_INFINITY;
+            if (this.whatIfPoints === 0) return 0;
+
+            return (this.whatIfPoints * 100) / this.whatIfMaxPoints;
         }
         if (this.maxPoints === 0 && this.points === 0) return undefined;
         if (this.maxPoints === 0) return Number.POSITIVE_INFINITY;

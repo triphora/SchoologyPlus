@@ -1,5 +1,5 @@
 import { EXTENSION_NAME } from "../utils/constants";
-import { createElement, getTextNodeContent } from "../utils/dom";
+import { conditionalClass, createElement, getTextNodeContent } from "../utils/dom";
 import { SchoologyAssignment } from "./schoology-assignment";
 import { SchoologyGradebookPeriod } from "./schoology-gradebook-period";
 
@@ -10,6 +10,8 @@ export class SchoologyGradebookCategory {
     public weight?: number;
 
     constructor(public period: SchoologyGradebookPeriod, public element: HTMLElement) {
+        this.element.classList.add("splus-grades-category");
+
         this.id = this.element.dataset.id!;
         this.name = getTextNodeContent(
             this.element.querySelector<HTMLAnchorElement>(".title-column .title")!
@@ -80,6 +82,11 @@ export class SchoologyGradebookCategory {
     }
 
     public async render() {
+        conditionalClass(this.element, this.isLoading, "splus-grades-loading");
+        conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
+        conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
+        conditionalClass(this.element, this.isModified, "splus-grades-modified");
+
         if (!this.isLoading) {
             this._elem_totalPoints!.textContent = this.points.toString();
             this._elem_maxPoints!.textContent = ` / ${this.maxPoints}`;
@@ -99,6 +106,10 @@ export class SchoologyGradebookCategory {
         return this.assignments.some(assignment => assignment.failedToLoad);
     }
 
+    public get isModified() {
+        return this.assignments.some(assignment => assignment.isModified);
+    }
+
     public get points() {
         return this.assignments.reduce((acc, assignment) => {
             if (assignment.ignoreInCalculations) return acc;
@@ -115,12 +126,36 @@ export class SchoologyGradebookCategory {
         }, 0);
     }
 
+    public get whatIfPoints() {
+        return this.assignments.reduce((acc, assignment) => {
+            if (assignment.ignoreInCalculations) return acc;
+
+            return acc + (assignment.whatIfPoints ?? assignment.points ?? 0);
+        }, 0);
+    }
+
+    public get whatIfMaxPoints() {
+        return this.assignments.reduce((acc, assignment) => {
+            if (assignment.ignoreInCalculations) return acc;
+
+            return acc + (assignment.whatIfMaxPoints ?? assignment.maxPoints ?? 0);
+        }, 0);
+    }
+
     public get gradePercent() {
         if (this.maxPoints === 0 && this.points === 0) return undefined;
         if (this.maxPoints === 0) return Number.POSITIVE_INFINITY;
         if (this.points === 0) return 0;
 
         return (this.points * 100) / this.maxPoints;
+    }
+
+    public get whatIfGradePercent() {
+        if (this.whatIfMaxPoints === 0 && this.whatIfPoints === 0) return undefined;
+        if (this.whatIfMaxPoints === 0) return Number.POSITIVE_INFINITY;
+        if (this.whatIfPoints === 0) return 0;
+
+        return (this.whatIfPoints * 100) / this.whatIfMaxPoints;
     }
 
     public get letterGradeString() {

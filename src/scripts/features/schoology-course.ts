@@ -1,6 +1,6 @@
 import { fetchApi, getUserId } from "../utils/api";
 import { EXTENSION_NAME } from "../utils/constants";
-import { createElement, getTextNodeContent } from "../utils/dom";
+import { conditionalClass, createElement, getTextNodeContent } from "../utils/dom";
 import { Logger } from "../utils/logger";
 import { getGradingScale } from "../utils/settings";
 import { Settings } from "../utils/splus-settings";
@@ -22,6 +22,8 @@ export class SchoologyCourse {
     private _cachedListSearch: any = undefined;
 
     constructor(public element: HTMLElement) {
+        this.element.classList.add("splus-grades-course");
+
         this.id = this.element.id.match(/\d+/)![0];
         this.name = getTextNodeContent(
             this.element.querySelector(".gradebook-course-title > a[href]")!
@@ -80,6 +82,11 @@ export class SchoologyCourse {
     }
 
     public async render() {
+        conditionalClass(this.element, this.isLoading, "splus-grades-loading");
+        conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
+        conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
+        conditionalClass(this.element, this.isModified, "splus-grades-modified");
+
         if (!this.isLoading) {
             this.addLetterGrade(this._elem_gradeText!);
         }
@@ -106,17 +113,22 @@ export class SchoologyCourse {
         return this.periods.some(period => period.failedToLoad);
     }
 
-    public get gradePercent() {
+    public get isModified() {
+        return this.periods.some(period => period.isModified);
+    }
+
+    private calculateWeightedGradePercent(
+        getPoints: (period: any) => number,
+        getMaxPoints: (period: any) => number
+    ): number | undefined {
         let weightedPoints = this.periods.reduce((acc, period) => {
             if (period.weight === undefined) return acc;
-
-            return acc + period.points * period.weight;
+            return acc + getPoints(period) * period.weight;
         }, 0);
 
         let weightedMaxPoints = this.periods.reduce((acc, period) => {
             if (period.weight === undefined) return acc;
-
-            return acc + period.maxPoints * period.weight;
+            return acc + getMaxPoints(period) * period.weight;
         }, 0);
 
         if (weightedPoints === 0 && weightedMaxPoints === 0) return undefined;
@@ -124,6 +136,20 @@ export class SchoologyCourse {
         if (weightedPoints === 0) return 0;
 
         return (weightedPoints * 100) / weightedMaxPoints;
+    }
+
+    public get gradePercent() {
+        return this.calculateWeightedGradePercent(
+            period => period.points,
+            period => period.maxPoints
+        );
+    }
+
+    public get whatIfGradePercent() {
+        return this.calculateWeightedGradePercent(
+            period => period.whatIfPoints,
+            period => period.whatIfMaxPoints
+        );
     }
 
     public get gradePercentageString() {

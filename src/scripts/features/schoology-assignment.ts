@@ -1,5 +1,5 @@
 import { fetchApi } from "../utils/api";
-import { getTextNodeContent } from "../utils/dom";
+import { conditionalClass, createElement, getTextNodeContent } from "../utils/dom";
 import { Logger } from "../utils/logger";
 import { SchoologyGradebookCategory } from "./schoology-gradebook-category";
 
@@ -14,16 +14,19 @@ export class SchoologyAssignment {
     public isMissing: boolean = false;
     public failedToLoad: boolean = false;
 
+    public whatIfPoints?: number;
+    public whatIfMaxPoints?: number;
+
     constructor(public category: SchoologyGradebookCategory, public element: HTMLElement) {
+        this.initElements();
+
+        this.element.classList.add("splus-grades-assignment");
+
         this.id = this.element.dataset.id!.substring(2);
-        this.name = getTextNodeContent(
-            element.querySelector<HTMLAnchorElement>(".title-column .title > a[href]")!
-        );
+        this.name = getTextNodeContent(this._elem_title!);
 
         try {
-            let scoreElement =
-                this.element.querySelector(".rounded-grade") ||
-                this.element.querySelector(".rubric-grade-value");
+            let scoreElement = this._elem_sgyPoints || this._elem_sgyRubricGradeValue;
 
             this.points = scoreElement ? Number.parseFloat(scoreElement!.textContent!) : undefined;
 
@@ -34,10 +37,8 @@ export class SchoologyAssignment {
         }
 
         try {
-            let maxPointsElement = this.element.querySelector(".max-grade");
-
-            this.maxPoints = maxPointsElement
-                ? Number.parseFloat(maxPointsElement.textContent!.match(/\d+/)![0])
+            this.maxPoints = this._elem_sgyMaxPoints
+                ? Number.parseFloat(this._elem_sgyMaxPoints.textContent!.match(/\d+/)![0])
                 : undefined;
 
             if (Number.isNaN(this.maxPoints)) throw "NaN";
@@ -46,26 +47,108 @@ export class SchoologyAssignment {
             Logger.warn("Error parsing max points for assignment", this, err);
         }
 
-        this.comment = getTextNodeContent(element.querySelector(".comment-column .comment")!);
-        this.exception =
-            element.querySelector(".exception .exception-text")?.textContent ?? undefined;
+        this.comment = getTextNodeContent(this._elem_comment);
+        this.exception = this._elem_exceptionText?.textContent ?? undefined;
 
         this.ignoreInCalculations =
             this.exception !== undefined ||
             (this.points === undefined && this.maxPoints === undefined);
 
-        if (this.element.querySelector(".exception-icon.missing")) {
+        if (this._elem_exceptionIcon && this._elem_exceptionIcon.classList.contains("missing")) {
             this.ignoreInCalculations = false;
             this.points = 0;
             this.maxPoints = undefined;
             this.isMissing = true;
         }
 
+        this.reconstructElements();
+
         this.loadPointsFromApi().then(() => this.render());
     }
 
+    private _elem_title: HTMLAnchorElement | null = null;
+    private _elem_sgyPoints: HTMLElement | null = null;
+    private _elem_sgyMaxPoints: HTMLElement | null = null;
+    private _elem_sgyRubricGradeValue: HTMLElement | null = null;
+    private _elem_comment: HTMLElement | null = null;
+    private _elem_exceptionText: HTMLElement | null = null;
+    private _elem_exceptionIcon: HTMLElement | null = null;
+    private _elem_sgyGradeContentWrapper: HTMLElement | null = null;
+    private _elem_points: HTMLElement | null = null;
+    private _elem_maxPoints: HTMLElement | null = null;
+    private _elem_percent: HTMLElement | null = null;
+    private _elem_editButton: HTMLElement | null = null;
+    private _elem_sgyGradeWrapper: HTMLElement | null = null;
+
+    private initElements() {
+        this._elem_title = this.element.querySelector<HTMLAnchorElement>(
+            ".title-column .title > a[href]"
+        );
+
+        this._elem_sgyGradeContentWrapper = this.element.querySelector(
+            ".grade-column .td-content-wrapper"
+        );
+
+        this._elem_sgyPoints = this.element.querySelector(".rounded-grade");
+        this._elem_sgyMaxPoints = this.element.querySelector(".max-grade");
+        this._elem_sgyRubricGradeValue = this.element.querySelector(".rubric-grade-value");
+        this._elem_comment = this.element.querySelector(".comment-column .comment");
+        this._elem_exceptionText = this.element.querySelector(".exception .exception-text");
+        this._elem_exceptionIcon = this.element.querySelector(".exception .exception-icon");
+        this._elem_sgyGradeWrapper = this.element.querySelector(".grade-wrapper");
+    }
+
+    private reconstructElements() {
+        this._elem_sgyGradeContentWrapper!.innerHTML = "";
+        this._elem_points = createElement("span", ["rounded-grade"], { textContent: "—" });
+        this._elem_maxPoints = createElement("span", ["max-grade"], { textContent: " / —" });
+        this._elem_percent = createElement(
+            "span",
+            ["percentage-grade", "injected-assignment-percent"],
+            { textContent: "N/A" }
+        );
+
+        // <img class="grade-edit-indicator" src="chrome-extension://fflijjibhgbhdgjgjkbbnamafdelcoal/imgs/edit-pencil.svg" width="12" data-parent-id="1045520-76111969" style="display: unset;">
+        this._elem_editButton = createElement("img", ["splus-grades-edit-indicator"], {
+            src: chrome.runtime.getURL("imgs/edit-pencil.svg"),
+            width: 12,
+            onclick: this.edit,
+        });
+
+        if (this._elem_exceptionIcon) {
+            this._elem_sgyGradeContentWrapper!.append(this._elem_exceptionIcon);
+        }
+
+        this._elem_sgyGradeContentWrapper!.append(
+            createElement("span", ["awarded-grade"], {}, [this._elem_points]),
+            this._elem_maxPoints,
+            this._elem_sgyGradeWrapper!,
+            createElement("br"),
+            this._elem_percent
+        );
+
+        this._elem_sgyGradeWrapper!.append(this._elem_editButton);
+    }
+
     public async render() {
+        conditionalClass(this.element, this.isLoading, "splus-grades-loading");
+        conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
+        conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
+        conditionalClass(this.element, !!this.exception, "splus-grades-has-exception");
+        conditionalClass(this.element, this.isModified, "splus-grades-modified");
+
+        if (!this.isLoading) {
+            this._elem_points!.textContent = this.points?.toString() ?? "—";
+            this._elem_maxPoints!.textContent = ` / ${this.maxPoints?.toString() ?? "—"}`;
+            this._elem_percent!.textContent = this.gradePercentageString;
+            this._elem_percent!.title = this.gradePercentageDetailsString;
+        }
+
         this.category.render();
+    }
+
+    public async edit() {
+        // TODO
     }
 
     public get course() {
@@ -80,6 +163,10 @@ export class SchoologyAssignment {
         );
     }
 
+    public get isModified() {
+        return this.whatIfPoints !== undefined || this.whatIfMaxPoints !== undefined;
+    }
+
     private async loadPointsFromApi() {
         Logger.debug(`Fetching max points for (nonentered) assignment ${this.id}`);
 
@@ -87,11 +174,15 @@ export class SchoologyAssignment {
             return this.points === undefined && !this.ignoreInCalculations && !this.exception;
         };
 
+        let shouldLoadMaxPoints = () => {
+            return this.maxPoints === undefined;
+        };
+
         let needToLoadMaxPoints = () => {
             return this.maxPoints === undefined && !this.ignoreInCalculations;
         };
 
-        if (!needToLoadPoints() && !needToLoadMaxPoints()) return;
+        if (!needToLoadPoints() && !shouldLoadMaxPoints()) return;
 
         let response: Response | null = null;
         let firstTryError: any = null;
@@ -114,7 +205,7 @@ export class SchoologyAssignment {
                 }
 
                 if (
-                    needToLoadMaxPoints() &&
+                    shouldLoadMaxPoints() &&
                     jsonAssignment.max_points !== undefined &&
                     jsonAssignment.max_points !== null
                 ) {
@@ -122,7 +213,7 @@ export class SchoologyAssignment {
                 }
             }
 
-            if (needToLoadPoints() || needToLoadMaxPoints()) {
+            if (needToLoadPoints() || shouldLoadMaxPoints()) {
                 throw `Failed to load points from list search for assignment ${this.id}`;
             }
 
@@ -157,6 +248,13 @@ export class SchoologyAssignment {
             } catch (err) {
                 firstTryError = err;
             }
+        }
+
+        if (shouldLoadMaxPoints() && !needToLoadMaxPoints()) {
+            Logger.warn(
+                `Failed to load max points for assignment ${this.id} from API, but the assignment is not consequential for calculations`
+            );
+            return;
         }
 
         this.failedToLoad = true;

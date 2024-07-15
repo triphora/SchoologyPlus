@@ -17,6 +17,7 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
     children?: Element[]
 ): HTMLElementTagNameMap[K] {
     let element = document.createElement(tag);
+    element.classList.add("splus");
 
     if (classList) {
         for (let c of classList) {
@@ -206,8 +207,8 @@ export function waitForElement(selector: string, check_interval = 50): Promise<H
 }
 
 export function getTextNodeContent(element: HTMLElement): string;
-export function getTextNodeContent(element?: HTMLElement): string | undefined;
-export function getTextNodeContent(element?: HTMLElement) {
+export function getTextNodeContent(element?: HTMLElement | null): string | undefined;
+export function getTextNodeContent(element?: HTMLElement | null) {
     if (!element) {
         return undefined;
     }
@@ -217,4 +218,12 @@ export function getTextNodeContent(element?: HTMLElement) {
         .filter(node => node.nodeType === Node.TEXT_NODE)
         .map(node => node.textContent)
         .join("");
+}
+
+export function conditionalClass(element: HTMLElement, condition: boolean, className: string) {
+    if (condition) {
+        element.classList.add(className);
+    } else {
+        element.classList.remove(className);
+    }
 }
