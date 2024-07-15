@@ -92,6 +92,12 @@ export class SchoologyCourse {
         }
     }
 
+    public async renderAllAssignments() {
+        for (let assignment of this.assignments) {
+            await assignment.render();
+        }
+    }
+
     private addLetterGrade(elem: HTMLElement) {
         let letterGrade = this.getLetterGrade(this.gradePercent!);
 
@@ -103,6 +109,14 @@ export class SchoologyCourse {
 
         elem.textContent = this.letterGradeString;
         elem.title = `${this.gradePercentageDetailsString}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
+    }
+
+    public get categories() {
+        return this.periods.flatMap(p => p.categories);
+    }
+
+    public get assignments() {
+        return this.categories.flatMap(c => c.assignments);
     }
 
     public get isLoading() {
