@@ -2,6 +2,7 @@ import { EXTENSION_NAME } from "../utils/constants";
 import { conditionalClass, createElement, getTextNodeContent } from "../utils/dom";
 import { SchoologyAssignment } from "./schoology-assignment";
 import { SchoologyGradebookPeriod } from "./schoology-gradebook-period";
+import { enableWhatIfGrades, whatIfGradesEnabled } from "./what-if-grades";
 
 export class SchoologyGradebookCategory {
     public assignments: SchoologyAssignment[] = [];
@@ -150,7 +151,19 @@ export class SchoologyGradebookCategory {
         this.period.render(whatIf);
     }
 
-    public addAssignment() {}
+    public addAssignment() {
+        if (!whatIfGradesEnabled()) {
+            if (
+                !confirm(
+                    'What-If Grades must be enabled to add a "What-If" assignment. Would you like to enable What-If Grades?'
+                )
+            ) {
+                return;
+            }
+
+            enableWhatIfGrades();
+        }
+    }
 
     public get isLoading() {
         return this.assignments.some(assignment => assignment.isLoading);

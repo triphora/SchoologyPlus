@@ -12,6 +12,20 @@ const WHAT_IF_GRADES_TOGGLE_CHECKBOX = createElement("input", ["splus-track-clic
     onclick: toggleWhatIfGrades,
 });
 
+export function whatIfGradesEnabled() {
+    return WHAT_IF_GRADES_TOGGLE_CHECKBOX.checked;
+}
+
+export function enableWhatIfGrades() {
+    WHAT_IF_GRADES_TOGGLE_CHECKBOX.checked = true;
+    toggleWhatIfGrades();
+}
+
+export function disableWhatIfGrades() {
+    WHAT_IF_GRADES_TOGGLE_CHECKBOX.checked = false;
+    toggleWhatIfGrades();
+}
+
 export var gradebookCourses: SchoologyCourse[] = [];
 
 export function loadWhatIfGrades() {
@@ -96,7 +110,7 @@ function addCheckbox() {
 function toggleWhatIfGrades() {
     conditionalClass(
         document.documentElement,
-        WHAT_IF_GRADES_TOGGLE_CHECKBOX.checked,
+        whatIfGradesEnabled(),
         "splus-what-if-grades-v2-enabled"
     );
 
