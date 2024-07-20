@@ -6,16 +6,17 @@ import { SchoologyGradebookCategory } from "./schoology-gradebook-category";
 export class SchoologyAssignment {
     public id: string;
     public name: string;
-    public points?: number;
-    public maxPoints?: number;
     public comment?: string;
     public exception?: string;
     public ignoreInCalculations: boolean;
     public isMissing: boolean = false;
     public failedToLoad: boolean = false;
 
-    public whatIfPoints?: number;
-    public whatIfMaxPoints?: number;
+    private _points?: number;
+    private _maxPoints?: number;
+
+    private _whatIfPoints?: number;
+    private _whatIfMaxPoints?: number;
 
     constructor(public category: SchoologyGradebookCategory, public element: HTMLElement) {
         this.initElements();
@@ -28,22 +29,22 @@ export class SchoologyAssignment {
         try {
             let scoreElement = this._elem_sgyPoints || this._elem_sgyRubricGradeValue;
 
-            this.points = scoreElement ? Number.parseFloat(scoreElement!.textContent!) : undefined;
+            this._points = scoreElement ? Number.parseFloat(scoreElement!.textContent!) : undefined;
 
-            if (Number.isNaN(this.points)) throw "NaN";
+            if (Number.isNaN(this._points)) throw "NaN";
         } catch (err) {
-            this.points = undefined;
+            this._points = undefined;
             Logger.warn("Error parsing points for assignment", this, err);
         }
 
         try {
-            this.maxPoints = this._elem_sgyMaxPoints
+            this._maxPoints = this._elem_sgyMaxPoints
                 ? Number.parseFloat(this._elem_sgyMaxPoints.textContent!.match(/\d+/)![0])
                 : undefined;
 
-            if (Number.isNaN(this.maxPoints)) throw "NaN";
+            if (Number.isNaN(this._maxPoints)) throw "NaN";
         } catch (err) {
-            this.maxPoints = undefined;
+            this._maxPoints = undefined;
             Logger.warn("Error parsing max points for assignment", this, err);
         }
 
@@ -52,12 +53,12 @@ export class SchoologyAssignment {
 
         this.ignoreInCalculations =
             this.exception !== undefined ||
-            (this.points === undefined && this.maxPoints === undefined);
+            (this._points === undefined && this._maxPoints === undefined);
 
         if (this._elem_exceptionIcon && this._elem_exceptionIcon.classList.contains("missing")) {
             this.ignoreInCalculations = false;
-            this.points = 0;
-            this.maxPoints = undefined;
+            this._points = 0;
+            this._maxPoints = undefined;
             this.isMissing = true;
         }
 
@@ -130,7 +131,7 @@ export class SchoologyAssignment {
         this._elem_sgyGradeWrapper!.append(this._elem_editButton);
     }
 
-    public async render() {
+    public async render(whatIf: boolean = false) {
         conditionalClass(this.element, this.isLoading, "splus-grades-loading");
         conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
         conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
@@ -138,17 +139,29 @@ export class SchoologyAssignment {
         conditionalClass(this.element, this.isModified, "splus-grades-modified");
 
         if (!this.isLoading) {
-            this._elem_points!.textContent = this.points?.toString() ?? "—";
-            this._elem_maxPoints!.textContent = ` / ${this.maxPoints?.toString() ?? "—"}`;
-            this._elem_percent!.textContent = this.gradePercentageString;
-            this._elem_percent!.title = this.gradePercentageDetailsString;
+            this._elem_points!.textContent = this.getPoints(whatIf)?.toString() ?? "—";
+            this._elem_maxPoints!.textContent = ` / ${
+                this.getMaxPoints(whatIf)?.toString() ?? "—"
+            }`;
+            this._elem_percent!.textContent = this.getGradePercentageString(whatIf);
+            this._elem_percent!.title = this.getGradePercentageDetailsString(whatIf);
         }
 
-        this.category.render();
+        this.category.render(whatIf);
     }
 
     public async edit() {
         // TODO
+    }
+
+    public getPoints(whatIf: boolean = false) {
+        if (whatIf) return this._whatIfPoints ?? this._points;
+        return this._points;
+    }
+
+    public getMaxPoints(whatIf: boolean = false) {
+        if (whatIf) return this._whatIfMaxPoints ?? this._maxPoints;
+        return this._maxPoints;
     }
 
     public get course() {
@@ -157,29 +170,29 @@ export class SchoologyAssignment {
 
     public get isLoading() {
         return (
-            (this.points === undefined || this.maxPoints === undefined) &&
+            (this._points === undefined || this._maxPoints === undefined) &&
             !this.ignoreInCalculations &&
             !this.failedToLoad
         );
     }
 
     public get isModified() {
-        return this.whatIfPoints !== undefined || this.whatIfMaxPoints !== undefined;
+        return this._whatIfPoints !== undefined || this._whatIfMaxPoints !== undefined;
     }
 
     private async loadPointsFromApi() {
         Logger.debug(`Fetching max points for (nonentered) assignment ${this.id}`);
 
         let needToLoadPoints = () => {
-            return this.points === undefined && !this.ignoreInCalculations && !this.exception;
+            return this._points === undefined && !this.ignoreInCalculations && !this.exception;
         };
 
         let shouldLoadMaxPoints = () => {
-            return this.maxPoints === undefined;
+            return this._maxPoints === undefined;
         };
 
         let needToLoadMaxPoints = () => {
-            return this.maxPoints === undefined && !this.ignoreInCalculations;
+            return this._maxPoints === undefined && !this.ignoreInCalculations;
         };
 
         if (!needToLoadPoints() && !shouldLoadMaxPoints()) return;
@@ -201,7 +214,7 @@ export class SchoologyAssignment {
                     jsonAssignment.grade !== undefined &&
                     jsonAssignment.grade !== null
                 ) {
-                    this.points = Number.parseFloat(jsonAssignment.grade);
+                    this._points = Number.parseFloat(jsonAssignment.grade);
                 }
 
                 if (
@@ -209,7 +222,7 @@ export class SchoologyAssignment {
                     jsonAssignment.max_points !== undefined &&
                     jsonAssignment.max_points !== null
                 ) {
-                    this.maxPoints = Number.parseFloat(jsonAssignment.max_points);
+                    this._maxPoints = Number.parseFloat(jsonAssignment.max_points);
                 }
             }
 
@@ -234,7 +247,7 @@ export class SchoologyAssignment {
                     let json = await response.json();
 
                     if (json && json.max_points !== undefined && json.max_points !== null) {
-                        this.maxPoints = Number.parseFloat(json.max_points);
+                        this._maxPoints = Number.parseFloat(json.max_points);
                         Logger.debug(
                             `Successfully loaded max points for assignment ${this.id} from API`
                         );
@@ -268,7 +281,7 @@ export class SchoologyAssignment {
         return new Promise<void>((resolve, reject) => {
             let startTime = Date.now();
             let interval = setInterval(() => {
-                if (this.points !== undefined && this.maxPoints !== undefined) {
+                if (this._points !== undefined && this._maxPoints !== undefined) {
                     clearInterval(interval);
                     resolve();
                 }
@@ -285,34 +298,43 @@ export class SchoologyAssignment {
         });
     }
 
-    public get gradePercent() {
-        if (this.ignoreInCalculations) return undefined;
-        if (this.maxPoints === 0) return Number.POSITIVE_INFINITY;
-        if (this.points === 0) return 0;
+    public getGradePercent(whatIf: boolean = false) {
+        let points = this.getPoints(whatIf);
+        let maxPoints = this.getMaxPoints(whatIf);
 
-        return this.points !== undefined && this.maxPoints !== undefined
-            ? (this.points * 100) / this.maxPoints
+        if (this.ignoreInCalculations) return undefined;
+        if (maxPoints === 0) return Number.POSITIVE_INFINITY;
+        if (points === 0) return 0;
+
+        return points !== undefined && maxPoints !== undefined
+            ? (points * 100) / maxPoints
             : undefined;
     }
 
-    public get gradePercentageString() {
+    public getGradePercentageString(whatIf: boolean = false) {
+        let gradePercent = this.getGradePercent(whatIf);
+
         if (this.isLoading) return "LOADING";
         if (this.failedToLoad) return "ERR";
-        if (this.gradePercent === undefined) return "—";
-        if (this.gradePercent === Number.POSITIVE_INFINITY) return "EC";
-        return `${Math.round(this.gradePercent)}%`;
+        if (gradePercent === undefined) return "—";
+        if (gradePercent === Number.POSITIVE_INFINITY) return "EC";
+        return `${Math.round(gradePercent)}%`;
     }
 
-    public get gradePercentageDetailsString() {
+    public getGradePercentageDetailsString(whatIf: boolean = false) {
+        let gradePercent = this.getGradePercent(whatIf);
+
         if (this.isLoading) return "Loading grade percentage...";
         if (this.failedToLoad) return "Failed to load grade percentage";
-        if (this.gradePercent === undefined) return "—";
-        if (this.gradePercent === Number.POSITIVE_INFINITY)
-            return `${this.points} points of Extra Credit`;
-        return `${this.gradePercent}%`;
+        if (gradePercent === undefined) return "—";
+        if (gradePercent === Number.POSITIVE_INFINITY)
+            return `${this.getPoints(whatIf)} points of Extra Credit`;
+        return `${gradePercent}%`;
     }
 
-    public toString() {
-        return `${this.name} (${this.id}) - ${this.points}/${this.maxPoints} - ${this.gradePercentageString} - ${this.comment} - ${this.exception}`;
+    public toString(whatIf: boolean = false) {
+        return `${this.name} (${this.id}) - ${this.getPoints(whatIf)}/${this.getMaxPoints(
+            whatIf
+        )} - ${this.getGradePercentageString(whatIf)} - ${this.comment} - ${this.exception}`;
     }
 }

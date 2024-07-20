@@ -81,7 +81,7 @@ export class SchoologyCourse {
         this._elem_title.appendChild(this._elem_gradeText);
     }
 
-    public async render() {
+    public async render(whatIf: boolean = false) {
         conditionalClass(this.element, this.isLoading, "splus-grades-loading");
         conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
         conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
@@ -92,23 +92,27 @@ export class SchoologyCourse {
         }
     }
 
-    public async renderAllAssignments() {
+    public async renderAllAssignments(whatIf: boolean = false) {
         for (let assignment of this.assignments) {
-            await assignment.render();
+            await assignment.render(whatIf);
         }
     }
 
-    private addLetterGrade(elem: HTMLElement) {
-        let letterGrade = this.getLetterGrade(this.gradePercent!);
+    private addLetterGrade(elem: HTMLElement, whatIf: boolean = false) {
+        let letterGrade = this.getLetterGrade(this.getGradePercent(whatIf)!);
 
         if (letterGrade === null) {
-            elem.textContent = this.gradePercentageString;
-            elem.title = this.gradePercentageDetailsString;
+            elem.textContent = this.getGradePercentageString(whatIf);
+            elem.title = this.getGradePercentageDetailsString(whatIf);
             return;
         }
 
-        elem.textContent = this.letterGradeString;
-        elem.title = `${this.gradePercentageDetailsString}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
+        elem.textContent = this.getLetterGradeString(whatIf);
+        elem.title = `${this.getGradePercentageDetailsString(
+            whatIf
+        )}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${
+            this.gradingScaleString
+        }\nTo change this grading scale, find 'Course Options' on the page for this course`;
     }
 
     public get categories() {
@@ -131,18 +135,15 @@ export class SchoologyCourse {
         return this.periods.some(period => period.isModified);
     }
 
-    private calculateWeightedGradePercent(
-        getPoints: (period: any) => number,
-        getMaxPoints: (period: any) => number
-    ): number | undefined {
+    public getGradePercent(whatIf: boolean = false) {
         let weightedPoints = this.periods.reduce((acc, period) => {
             if (period.weight === undefined) return acc;
-            return acc + getPoints(period) * period.weight;
+            return acc + period.getPoints(whatIf) * period.weight;
         }, 0);
 
         let weightedMaxPoints = this.periods.reduce((acc, period) => {
             if (period.weight === undefined) return acc;
-            return acc + getMaxPoints(period) * period.weight;
+            return acc + period.getMaxPoints(whatIf) * period.weight;
         }, 0);
 
         if (weightedPoints === 0 && weightedMaxPoints === 0) return undefined;
@@ -152,38 +153,28 @@ export class SchoologyCourse {
         return (weightedPoints * 100) / weightedMaxPoints;
     }
 
-    public get gradePercent() {
-        return this.calculateWeightedGradePercent(
-            period => period.points,
-            period => period.maxPoints
-        );
-    }
+    public getGradePercentageString(whatIf: boolean = false) {
+        let gradePercent = this.getGradePercent(whatIf);
 
-    public get whatIfGradePercent() {
-        return this.calculateWeightedGradePercent(
-            period => period.whatIfPoints,
-            period => period.whatIfMaxPoints
-        );
-    }
-
-    public get gradePercentageString() {
         if (this.isLoading) return "LOADING";
         if (this.failedToLoad) return "ERR";
-        if (this.gradePercent === undefined) return "—";
-        if (this.gradePercent === Number.POSITIVE_INFINITY) return "EC";
-        return `${Math.round(this.gradePercent * 100) / 100}%`;
+        if (gradePercent === undefined) return "—";
+        if (gradePercent === Number.POSITIVE_INFINITY) return "EC";
+        return `${Math.round(gradePercent * 100) / 100}%`;
     }
 
-    public get gradePercentageDetailsString() {
+    public getGradePercentageDetailsString(whatIf: boolean = false) {
+        let gradePercent = this.getGradePercent(whatIf);
+
         if (this.isLoading) return "Loading grade percentage...";
         if (this.failedToLoad) return "Failed to load grade percentage";
-        if (this.gradePercent === undefined) return "—";
-        if (this.gradePercent === Number.POSITIVE_INFINITY) return "Extra Credit";
-        return `${this.gradePercent}%`;
+        if (gradePercent === undefined) return "—";
+        if (gradePercent === Number.POSITIVE_INFINITY) return "Extra Credit";
+        return `${gradePercent}%`;
     }
 
-    public toString() {
-        return `${this.name} (${this.id}) - ${this.gradePercentageString}`;
+    public toString(whatIf: boolean = false) {
+        return `${this.name} (${this.id}) - ${this.getGradePercentageString(whatIf)}`;
     }
 
     public toDetailedString() {
@@ -226,10 +217,12 @@ export class SchoologyCourse {
         return getGradingScale(this.id);
     }
 
-    public get letterGradeString() {
-        if (!this.gradePercent) return "—";
-        let letterGrade = this.getLetterGrade(this.gradePercent);
-        return `${letterGrade} (${this.gradePercentageString})`;
+    public getLetterGradeString(whatIf: boolean = false) {
+        let gradePercent = this.getGradePercent(whatIf);
+
+        if (gradePercent === undefined) return "—";
+        let letterGrade = this.getLetterGrade(gradePercent);
+        return `${letterGrade} (${this.getGradePercentageString(whatIf)})`;
     }
 
     public get gradingScaleString() {

@@ -1569,6 +1569,11 @@ Should not be shown
         padding-left: 2px;
     }
 
+    .splus-grades-add-assignment .title {
+        font-style: italic;
+    }
+
+    // What-If Grades disabled
     &:not(.splus-what-if-grades-v2-enabled) {
         .splus-grades-assignment {
             &.splus-grades-has-exception {
@@ -1583,6 +1588,7 @@ Should not be shown
         }
     }
 
+    // What-If Grades enabled
     &.splus-what-if-grades-v2-enabled {
         .splus-grades-assignment {
             .exception-icon {

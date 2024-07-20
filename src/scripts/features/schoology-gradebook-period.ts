@@ -78,7 +78,7 @@ export class SchoologyGradebookPeriod {
         this._elem_letterGrade.textContent = this.schoologyAwardedGrade;
     }
 
-    public async render() {
+    public async render(whatIf: boolean = false) {
         conditionalClass(this.element, this.isLoading, "splus-grades-loading");
         conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
         conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
@@ -86,18 +86,22 @@ export class SchoologyGradebookPeriod {
 
         if (!this.isLoading) {
             if (!this.categoriesAreWeighted) {
-                this._elem_totalPoints!.textContent = this.points.toString();
-                this._elem_maxPoints!.textContent = ` / ${this.maxPoints}`;
+                this._elem_totalPoints!.textContent = this.getPoints(whatIf).toString();
+                this._elem_maxPoints!.textContent = ` / ${this.getMaxPoints(whatIf)}`;
             } else {
                 this._elem_totalPoints!.textContent = "";
                 this._elem_maxPoints!.textContent = "";
             }
 
             this._elem_letterGrade!.textContent = this.schoologyAwardedGrade;
-            this._elem_letterGrade!.title = `S+ calculated this grade as ${this.letterGradeString}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.course.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
+            this._elem_letterGrade!.title = `S+ calculated this grade as ${this.getLetterGradeString(
+                whatIf
+            )}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${
+                this.course.gradingScaleString
+            }\nTo change this grading scale, find 'Course Options' on the page for this course`;
         }
 
-        this.course.render();
+        this.course.render(whatIf);
     }
 
     public get categoriesAreWeighted() {
@@ -116,68 +120,38 @@ export class SchoologyGradebookPeriod {
         return this.categories.some(category => category.isModified);
     }
 
-    public get points(): number {
-        if (this.categoriesAreWeighted) return this.gradePercent ?? 0;
+    public getPoints(whatIf: boolean = false): number {
+        if (this.categoriesAreWeighted) return this.getGradePercent(whatIf) ?? 0;
 
         return this.categories.reduce((acc, category) => {
-            if (category.weight === undefined) return acc + category.points;
+            if (category.weight === undefined) return acc + category.getPoints(whatIf);
 
-            return acc + category.points * category.weight;
+            return acc + category.getPoints(whatIf) * category.weight;
         }, 0);
     }
 
-    public get maxPoints() {
+    public getMaxPoints(whatIf: boolean = false) {
         if (this.categoriesAreWeighted) return 100;
 
         return this.categories.reduce((acc, category) => {
-            if (category.weight === undefined) return acc + category.maxPoints;
+            if (category.weight === undefined) return acc + category.getMaxPoints(whatIf);
 
-            return acc + category.maxPoints * category.weight;
+            return acc + category.getMaxPoints(whatIf) * category.weight;
         }, 0);
     }
 
-    public get whatIfPoints(): number {
-        if (this.categoriesAreWeighted) return this.whatIfGradePercent ?? 0;
-
-        return this.categories.reduce((acc, category) => {
-            if (category.weight === undefined) return acc + category.whatIfPoints;
-
-            return acc + category.whatIfPoints * category.weight;
-        }, 0);
-    }
-
-    public get whatIfMaxPoints() {
-        if (this.categoriesAreWeighted) return 100;
-
-        return this.categories.reduce((acc, category) => {
-            if (category.weight === undefined) return acc + category.whatIfMaxPoints;
-
-            return acc + category.whatIfMaxPoints * category.weight;
-        }, 0);
-    }
-
-    public get gradePercent() {
-        return this.calculateGradePercent(false);
-    }
-
-    public get whatIfGradePercent() {
-        return this.calculateGradePercent(true);
-    }
-
-    private calculateGradePercent(whatIf: boolean) {
+    public getGradePercent(whatIf: boolean = false) {
         if (this.categoriesAreWeighted) {
             let weightedPoints = this.categories.reduce((acc, category) => {
                 if (category.weight === undefined) return acc;
 
-                return acc + (whatIf ? category.whatIfPoints : category.points) * category.weight;
+                return acc + category.getPoints(whatIf) * category.weight;
             }, 0);
 
             let weightedMaxPoints = this.categories.reduce((acc, category) => {
                 if (category.weight === undefined) return acc;
 
-                return (
-                    acc + (whatIf ? category.whatIfMaxPoints : category.maxPoints) * category.weight
-                );
+                return acc + category.getMaxPoints(whatIf) * category.weight;
             }, 0);
 
             if (weightedPoints === 0 && weightedMaxPoints === 0) return undefined;
@@ -186,43 +160,48 @@ export class SchoologyGradebookPeriod {
 
             return (weightedPoints * 100) / weightedMaxPoints;
         }
-        if (whatIf) {
-            if (this.whatIfMaxPoints === 0 && this.whatIfPoints === 0) return undefined;
-            if (this.whatIfMaxPoints === 0) return Number.POSITIVE_INFINITY;
-            if (this.whatIfPoints === 0) return 0;
 
-            return (this.whatIfPoints * 100) / this.whatIfMaxPoints;
-        }
-        if (this.maxPoints === 0 && this.points === 0) return undefined;
-        if (this.maxPoints === 0) return Number.POSITIVE_INFINITY;
-        if (this.points === 0) return 0;
+        let points = this.getPoints(whatIf);
+        let maxPoints = this.getMaxPoints(whatIf);
 
-        return (this.points * 100) / this.maxPoints;
+        if (maxPoints === 0 && points === 0) return undefined;
+        if (maxPoints === 0) return Number.POSITIVE_INFINITY;
+        if (points === 0) return 0;
+
+        return (points * 100) / maxPoints;
     }
 
-    public get letterGradeString() {
-        if (!this.gradePercent) return "—";
-        let letterGrade = this.course.getLetterGrade(this.gradePercent);
-        return `${letterGrade} (${this.gradePercentageString})`;
+    public getLetterGradeString(whatIf: boolean = false) {
+        let gradePercent = this.getGradePercent(whatIf);
+
+        if (gradePercent === undefined) return "—";
+        let letterGrade = this.course.getLetterGrade(gradePercent);
+        return `${letterGrade} (${this.getGradePercentageString(whatIf)})`;
     }
 
-    public get gradePercentageString() {
+    public getGradePercentageString(whatIf: boolean = false) {
+        let gradePercent = this.getGradePercent(whatIf);
+
         if (this.isLoading) return "LOADING";
         if (this.failedToLoad) return "ERR";
-        if (this.gradePercent === undefined) return "—";
-        if (this.gradePercent === Number.POSITIVE_INFINITY) return "EC";
-        return `${Math.round(this.gradePercent * 100) / 100}%`;
+        if (gradePercent === undefined) return "—";
+        if (gradePercent === Number.POSITIVE_INFINITY) return "EC";
+        return `${Math.round(gradePercent * 100) / 100}%`;
     }
 
-    public get gradePercentageDetailsString() {
+    public getGradePercentageDetailsString(whatIf: boolean = false) {
+        let gradePercent = this.getGradePercent(whatIf);
+
         if (this.isLoading) return "Loading grade percentage...";
         if (this.failedToLoad) return "Failed to load grade percentage";
-        if (this.gradePercent === undefined) return "—";
-        if (this.gradePercent === Number.POSITIVE_INFINITY) return "Extra Credit";
-        return `${this.gradePercent}%`;
+        if (gradePercent === undefined) return "—";
+        if (gradePercent === Number.POSITIVE_INFINITY) return "Extra Credit";
+        return `${gradePercent}%`;
     }
 
-    public toString() {
-        return `${this.name} (${this.id}) - ${this.points}/${this.maxPoints} - ${this.gradePercentageString}`;
+    public toString(whatIf: boolean = false) {
+        return `${this.name} (${this.id}) - ${this.getPoints(whatIf)}/${this.getMaxPoints(
+            whatIf
+        )} - ${this.getGradePercentageString(whatIf)}`;
     }
 }
