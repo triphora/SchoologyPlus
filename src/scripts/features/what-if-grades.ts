@@ -115,7 +115,7 @@ function toggleWhatIfGrades() {
     );
 
     for (let course of gradebookCourses) {
-        course.renderAllAssignments();
+        course.renderAllAssignments(whatIfGradesEnabled());
     }
 }
 

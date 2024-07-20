@@ -2,6 +2,7 @@ import { fetchApi } from "../utils/api";
 import { conditionalClass, createElement, getTextNodeContent } from "../utils/dom";
 import { Logger } from "../utils/logger";
 import { SchoologyGradebookCategory } from "./schoology-gradebook-category";
+import { whatIfGradesEnabled } from "./what-if-grades";
 
 export class SchoologyAssignment {
     public id: string;
@@ -80,6 +81,7 @@ export class SchoologyAssignment {
     private _elem_percent: HTMLElement | null = null;
     private _elem_editButton: HTMLElement | null = null;
     private _elem_sgyGradeWrapper: HTMLElement | null = null;
+    private _elem_whatIfTextBox: HTMLElement | null = null;
 
     private initElements() {
         this._elem_title = this.element.querySelector<HTMLAnchorElement>(
@@ -101,8 +103,17 @@ export class SchoologyAssignment {
 
     private reconstructElements() {
         this._elem_sgyGradeContentWrapper!.innerHTML = "";
-        this._elem_points = createElement("span", ["rounded-grade"], { textContent: "—" });
-        this._elem_maxPoints = createElement("span", ["max-grade"], { textContent: " / —" });
+        this._elem_points = createElement("span", ["rounded-grade", "splus-grades-grade-value"], {
+            textContent: "—",
+        });
+        this._elem_maxPoints = createElement("span", ["max-grade", "splus-grades-grade-value"], {
+            textContent: "—",
+        });
+        this._elem_whatIfTextBox = createElement("span", ["splus-grades-what-if-edit"], {
+            textContent: "—",
+            onblur: this.whatIfGradeChanged.bind(this),
+            contentEditable: "true",
+        });
         this._elem_percent = createElement(
             "span",
             ["percentage-grade", "injected-assignment-percent"],
@@ -113,7 +124,7 @@ export class SchoologyAssignment {
         this._elem_editButton = createElement("img", ["splus-grades-edit-indicator"], {
             src: chrome.runtime.getURL("imgs/edit-pencil.svg"),
             width: 12,
-            onclick: this.edit,
+            onclick: this.edit.bind(this),
         });
 
         if (this._elem_exceptionIcon) {
@@ -122,7 +133,11 @@ export class SchoologyAssignment {
 
         this._elem_sgyGradeContentWrapper!.append(
             createElement("span", ["awarded-grade"], {}, [this._elem_points]),
+            createElement("span", ["grade-divider", "splus-grades-grade-value", "max-grade"], {
+                textContent: " / ",
+            }),
             this._elem_maxPoints,
+            this._elem_whatIfTextBox,
             this._elem_sgyGradeWrapper!,
             createElement("br"),
             this._elem_percent
@@ -140,9 +155,10 @@ export class SchoologyAssignment {
 
         if (!this.isLoading) {
             this._elem_points!.textContent = this.getPoints(whatIf)?.toString() ?? "—";
-            this._elem_maxPoints!.textContent = ` / ${
-                this.getMaxPoints(whatIf)?.toString() ?? "—"
-            }`;
+            this._elem_maxPoints!.textContent = this.getMaxPoints(whatIf)?.toString() ?? "—";
+            this._elem_whatIfTextBox!.textContent = `${this.getPoints(
+                whatIf
+            )} / ${this.getMaxPoints(whatIf)}`;
             this._elem_percent!.textContent = this.getGradePercentageString(whatIf);
             this._elem_percent!.title = this.getGradePercentageDetailsString(whatIf);
         }
@@ -151,7 +167,26 @@ export class SchoologyAssignment {
     }
 
     public async edit() {
-        // TODO
+        this.element.classList.add("splus-whatif-editing");
+        this._elem_whatIfTextBox!.focus();
+        document.execCommand("selectAll", false, null as any);
+    }
+
+    private whatIfGradeChanged() {
+        this.element.classList.remove("splus-whatif-editing");
+
+        let text = this._elem_whatIfTextBox!.textContent;
+        let [points, maxPoints] = text!.split("/").map(x => Number.parseFloat(x));
+
+        if (Number.isNaN(points) || Number.isNaN(maxPoints)) {
+            this._whatIfPoints = undefined;
+            this._whatIfMaxPoints = undefined;
+        } else {
+            this._whatIfPoints = points;
+            this._whatIfMaxPoints = maxPoints;
+        }
+
+        this.render(whatIfGradesEnabled());
     }
 
     public getPoints(whatIf: boolean = false) {
