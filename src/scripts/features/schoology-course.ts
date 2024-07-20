@@ -88,7 +88,7 @@ export class SchoologyCourse {
         conditionalClass(this.element, this.isModified, "splus-grades-modified");
 
         if (!this.isLoading) {
-            this.addLetterGrade(this._elem_gradeText!);
+            this.addLetterGrade(this._elem_gradeText!, whatIf);
         }
     }
 

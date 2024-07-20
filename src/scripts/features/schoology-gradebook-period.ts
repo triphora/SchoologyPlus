@@ -94,12 +94,17 @@ export class SchoologyGradebookPeriod {
                 this._elem_maxPoints!.textContent = "";
             }
 
-            this._elem_letterGrade!.textContent = this.schoologyAwardedGrade;
-            this._elem_letterGrade!.title = `S+ calculated this grade as ${this.getLetterGradeString(
-                whatIf
-            )}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${
-                this.course.gradingScaleString
-            }\nTo change this grading scale, find 'Course Options' on the page for this course`;
+            if (whatIf) {
+                this._elem_letterGrade!.textContent = this.getLetterGradeString(whatIf);
+                this._elem_letterGrade!.title = `Letter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.course.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
+            } else {
+                this._elem_letterGrade!.textContent = this.schoologyAwardedGrade;
+                this._elem_letterGrade!.title = `S+ calculated this grade as ${this.getLetterGradeString(
+                    whatIf
+                )}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${
+                    this.course.gradingScaleString
+                }\nTo change this grading scale, find 'Course Options' on the page for this course`;
+            }
         }
 
         this.course.render(whatIf);

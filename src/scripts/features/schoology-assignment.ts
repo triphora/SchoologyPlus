@@ -216,13 +216,12 @@ export class SchoologyAssignment {
         let isDropped = this.getIsDropped(whatIf);
         let hasNonMissingException =
             !this.isModified && this.exception !== undefined && !this.isMissing;
-        let pointsAreUndefined =
-            this.getPoints(whatIf) === undefined && this.getMaxPoints(whatIf) === undefined;
+        let pointsAreUndefined = this.getPoints(whatIf) === undefined; // && this.getMaxPoints(whatIf) === undefined;
 
         // ignore if:
         // - dropped
         // - exception (except for missing) unless a what-if grade is entered
-        // - points and max points are undefined
+        // - points ~~and max points~~ are undefined
 
         return isDropped || hasNonMissingException || pointsAreUndefined;
     }
@@ -246,6 +245,10 @@ export class SchoologyAssignment {
     private async loadPointsFromApi() {
         Logger.debug(`Fetching max points for (nonentered) assignment ${this.id}`);
 
+        let shouldLoadPoints = () => {
+            return this._points === undefined;
+        };
+
         let needToLoadPoints = () => {
             return this._points === undefined && !this.getIgnoreInCalculations() && !this.exception;
         };
@@ -258,7 +261,7 @@ export class SchoologyAssignment {
             return this._maxPoints === undefined && !this.getIgnoreInCalculations();
         };
 
-        if (!needToLoadPoints() && !shouldLoadMaxPoints()) return;
+        if (!shouldLoadPoints() && !shouldLoadMaxPoints()) return;
 
         let response: Response | null = null;
         let firstTryError: any = null;
@@ -273,7 +276,7 @@ export class SchoologyAssignment {
                     .filter((x: any) => x.assignment_id == Number.parseInt(this.id!))[0];
 
                 if (
-                    needToLoadPoints() &&
+                    shouldLoadPoints() &&
                     jsonAssignment.grade !== undefined &&
                     jsonAssignment.grade !== null
                 ) {
@@ -289,7 +292,7 @@ export class SchoologyAssignment {
                 }
             }
 
-            if (needToLoadPoints() || shouldLoadMaxPoints()) {
+            if (shouldLoadPoints() || shouldLoadMaxPoints()) {
                 throw `Failed to load points from list search for assignment ${this.id}`;
             }
 
