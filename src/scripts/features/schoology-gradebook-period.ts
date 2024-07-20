@@ -83,6 +83,7 @@ export class SchoologyGradebookPeriod {
         conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
         conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
         conditionalClass(this.element, this.isModified, "splus-grades-modified");
+        conditionalClass(this.element, this.weight === 0, "splus-grades-ignored");
 
         if (!this.isLoading) {
             if (!this.categoriesAreWeighted) {

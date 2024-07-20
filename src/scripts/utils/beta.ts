@@ -1,5 +1,5 @@
 import { DISCORD_URL, EXTENSION_NAME } from "./constants";
-import { createElement } from "./dom";
+import { conditionalClass, createElement } from "./dom";
 
 interface BetaTest {
     name: string;
@@ -24,6 +24,29 @@ export const BETA_TESTS: Record<string, BetaTest> = {
     //     },
     //     activate: () => {},
     // },
+
+    whatif2: {
+        name: "What-If Grades v2",
+        description:
+            "Test the new version of the What-If Grades feature. This is a rewrite of the original version that is attempting to be more accurate and reliable. It is still in development, so please report any issues you encounter.",
+        url: DISCORD_URL,
+        controls: () => {
+            return createElement("div", [], {}, [
+                createBetaToggleCheckbox("Enable Debug Mode", e => {
+                    conditionalClass(
+                        document.documentElement,
+                        (e.target as HTMLInputElement).checked,
+                        "splus-debug-mode"
+                    );
+                }),
+                createElement("a", [], {
+                    textContent: "Report an Issue on Discord",
+                    href: DISCORD_URL,
+                }),
+            ]);
+        },
+        activate: () => {},
+    },
 };
 
 export const FORCED_BETA_TEST: string | undefined = undefined;

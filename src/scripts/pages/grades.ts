@@ -27,15 +27,19 @@ export var fetchQueue: [x: () => Promise<void>, y: number][] = [];
 export async function load() {
     document.documentElement.classList.add("splus-is-grades-page");
 
-    loadContextMenu();
-
-    try {
-        globalThis.SchoologyPlus.gradebook = loadWhatIfGrades();
-    } catch (err) {
-        Logger.error("Error loading what-if grades", err);
+    if (Settings.BetaCode.value === "whatif2") {
+        Logger.log("Loading new What-If Grades...");
+        try {
+            globalThis.SchoologyPlus.gradebook = loadWhatIfGrades();
+        } catch (err) {
+            Logger.error("Error loading what-if grades", err);
+        }
+    } else {
+        Logger.log("Loading old What-If Grades...");
+        await activateGradesPage();
     }
 
-    // await activateGradesPage();
+    loadContextMenu();
 
     Logger.log("Retrieving (" + fetchQueue.length + ") nonentered assignments info...");
     processNonenteredAssignments();

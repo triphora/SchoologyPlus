@@ -1560,6 +1560,35 @@ Should not be shown
     }
 }
 
+@mixin tooltipped($tooltip-text, $text-decoration) {
+    position: relative;
+    cursor: pointer;
+    text-decoration: $text-decoration;
+
+    &::after {
+        content: $tooltip-text;
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: black;
+        color: white;
+        text-align: center;
+        padding: 5px 10px;
+        border-radius: 6px;
+        white-space: nowrap;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.5s;
+    }
+
+    &:hover::after {
+        visibility: visible;
+        opacity: 1;
+        transition: opacity 0.5s;
+    }
+}
+
 .splus-what-if-grades-v2 {
     .splus-grades-edit-indicator {
         cursor: pointer;
@@ -1600,6 +1629,10 @@ Should not be shown
             }
         }
 
+        .splus-grades-modified {
+            border: 1px solid red;
+        }
+
         .splus-whatif-editing {
             .splus-grades-what-if-edit {
                 display: inline;
@@ -1609,6 +1642,18 @@ Should not be shown
 
             .splus-grades-grade-value {
                 display: none;
+            }
+        }
+    }
+
+    // Debug mode enabled
+    &.splus-debug-mode {
+        .splus-grades-assignment {
+            &.splus-grades-ignored .splus-grades-score-wrapper {
+                @include tooltipped(
+                    "This assignment is ignored in grade calculations",
+                    underline wavy gray
+                );
             }
         }
     }

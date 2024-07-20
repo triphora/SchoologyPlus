@@ -135,6 +135,11 @@ export class SchoologyGradebookCategory {
         conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
         conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
         conditionalClass(this.element, this.isModified, "splus-grades-modified");
+        conditionalClass(
+            this.element,
+            !this.weight && this.period.categoriesAreWeighted,
+            "splus-grades-ignored"
+        );
 
         if (!this.isLoading) {
             this._elem_totalPoints!.textContent = this.getPoints(whatIf).toString();
@@ -179,14 +184,14 @@ export class SchoologyGradebookCategory {
 
     public getPoints(whatIf: boolean = false) {
         return this.assignments.reduce((acc, assignment) => {
-            if (assignment.ignoreInCalculations) return acc;
+            if (assignment.getIgnoreInCalculations(whatIf)) return acc;
             return acc + (assignment.getPoints(whatIf) ?? 0);
         }, 0);
     }
 
     public getMaxPoints(whatIf: boolean = false) {
         return this.assignments.reduce((acc, assignment) => {
-            if (assignment.ignoreInCalculations) return acc;
+            if (assignment.getIgnoreInCalculations(whatIf)) return acc;
             return acc + (assignment.getMaxPoints(whatIf) ?? 0);
         }, 0);
     }

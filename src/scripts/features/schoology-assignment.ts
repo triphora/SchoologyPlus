@@ -9,15 +9,16 @@ export class SchoologyAssignment {
     public name: string;
     public comment?: string;
     public exception?: string;
-    public ignoreInCalculations: boolean;
     public isMissing: boolean = false;
     public failedToLoad: boolean = false;
 
+    private _isDropped: boolean;
     private _points?: number;
     private _maxPoints?: number;
 
     private _whatIfPoints?: number;
     private _whatIfMaxPoints?: number;
+    private _whatIfDropped?: boolean;
 
     constructor(public category: SchoologyGradebookCategory, public element: HTMLElement) {
         this.initElements();
@@ -51,13 +52,9 @@ export class SchoologyAssignment {
 
         this.comment = getTextNodeContent(this._elem_comment);
         this.exception = this._elem_exceptionText?.textContent ?? undefined;
-
-        this.ignoreInCalculations =
-            this.exception !== undefined ||
-            (this._points === undefined && this._maxPoints === undefined);
+        this._isDropped = this.element.classList.contains("dropped");
 
         if (this._elem_exceptionIcon && this._elem_exceptionIcon.classList.contains("missing")) {
-            this.ignoreInCalculations = false;
             this._points = 0;
             this._maxPoints = undefined;
             this.isMissing = true;
@@ -82,6 +79,7 @@ export class SchoologyAssignment {
     private _elem_editButton: HTMLElement | null = null;
     private _elem_sgyGradeWrapper: HTMLElement | null = null;
     private _elem_whatIfTextBox: HTMLElement | null = null;
+    private _elem_scoreWrapper: HTMLElement | null = null;
 
     private initElements() {
         this._elem_title = this.element.querySelector<HTMLAnchorElement>(
@@ -127,17 +125,21 @@ export class SchoologyAssignment {
             onclick: this.edit.bind(this),
         });
 
-        if (this._elem_exceptionIcon) {
-            this._elem_sgyGradeContentWrapper!.append(this._elem_exceptionIcon);
-        }
-
-        this._elem_sgyGradeContentWrapper!.append(
+        this._elem_scoreWrapper = createElement("span", ["splus-grades-score-wrapper"], {}, [
             createElement("span", ["awarded-grade"], {}, [this._elem_points]),
             createElement("span", ["grade-divider", "splus-grades-grade-value", "max-grade"], {
                 textContent: " / ",
             }),
             this._elem_maxPoints,
             this._elem_whatIfTextBox,
+        ]);
+
+        if (this._elem_exceptionIcon) {
+            this._elem_scoreWrapper!.prepend(this._elem_exceptionIcon);
+        }
+
+        this._elem_sgyGradeContentWrapper!.append(
+            this._elem_scoreWrapper,
             this._elem_sgyGradeWrapper!,
             createElement("br"),
             this._elem_percent
@@ -152,6 +154,12 @@ export class SchoologyAssignment {
         conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
         conditionalClass(this.element, !!this.exception, "splus-grades-has-exception");
         conditionalClass(this.element, this.isModified, "splus-grades-modified");
+        conditionalClass(this.element, this.getIsDropped(whatIf), "dropped");
+        conditionalClass(
+            this.element,
+            this.getIgnoreInCalculations(whatIf),
+            "splus-grades-ignored"
+        );
 
         if (!this.isLoading) {
             this._elem_points!.textContent = this.getPoints(whatIf)?.toString() ?? "—";
@@ -199,6 +207,26 @@ export class SchoologyAssignment {
         return this._maxPoints;
     }
 
+    public getIsDropped(whatIf: boolean = false) {
+        if (whatIf) return this._whatIfDropped ?? this._isDropped;
+        return this._isDropped;
+    }
+
+    public getIgnoreInCalculations(whatIf: boolean = false) {
+        let isDropped = this.getIsDropped(whatIf);
+        let hasNonMissingException =
+            !this.isModified && this.exception !== undefined && !this.isMissing;
+        let pointsAreUndefined =
+            this.getPoints(whatIf) === undefined && this.getMaxPoints(whatIf) === undefined;
+
+        // ignore if:
+        // - dropped
+        // - exception (except for missing) unless a what-if grade is entered
+        // - points and max points are undefined
+
+        return isDropped || hasNonMissingException || pointsAreUndefined;
+    }
+
     public get course() {
         return this.category.course;
     }
@@ -206,7 +234,7 @@ export class SchoologyAssignment {
     public get isLoading() {
         return (
             (this._points === undefined || this._maxPoints === undefined) &&
-            !this.ignoreInCalculations &&
+            !this.getIgnoreInCalculations() &&
             !this.failedToLoad
         );
     }
@@ -219,7 +247,7 @@ export class SchoologyAssignment {
         Logger.debug(`Fetching max points for (nonentered) assignment ${this.id}`);
 
         let needToLoadPoints = () => {
-            return this._points === undefined && !this.ignoreInCalculations && !this.exception;
+            return this._points === undefined && !this.getIgnoreInCalculations() && !this.exception;
         };
 
         let shouldLoadMaxPoints = () => {
@@ -227,7 +255,7 @@ export class SchoologyAssignment {
         };
 
         let needToLoadMaxPoints = () => {
-            return this._maxPoints === undefined && !this.ignoreInCalculations;
+            return this._maxPoints === undefined && !this.getIgnoreInCalculations();
         };
 
         if (!needToLoadPoints() && !shouldLoadMaxPoints()) return;
@@ -337,7 +365,7 @@ export class SchoologyAssignment {
         let points = this.getPoints(whatIf);
         let maxPoints = this.getMaxPoints(whatIf);
 
-        if (this.ignoreInCalculations) return undefined;
+        if (this.getIgnoreInCalculations(whatIf)) return undefined;
         if (maxPoints === 0) return Number.POSITIVE_INFINITY;
         if (points === 0) return 0;
 
