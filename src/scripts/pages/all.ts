@@ -129,7 +129,10 @@ export function loadBetaFeatures() {
             textContent: "β",
             id: "beta-tag",
         });
-        betaTag.addEventListener("click", event => Modal.openModal("beta-modal"));
+        betaTag.addEventListener(
+            "click",
+            event => (location.href = "#splus-settings#setting-input-beta")
+        );
         let betaContainer = createElement("div", ["splus-beta-container"], {}, [betaTag]);
         document.body.append(betaContainer);
         betaSection = createBetaSection(betaCode);
@@ -364,7 +367,7 @@ function activateEasterEgg() {
                 legacyLabel: "Easter Egg",
             });
         } else if (data.altKey && data.code === "KeyB") {
-            Modal.openModal("beta-modal");
+            location.href = "#splus-settings#setting-input-beta";
         } else if (data.key === "Escape") {
             video.style.visibility = "hidden";
             video.pause();

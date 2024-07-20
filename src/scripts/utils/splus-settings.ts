@@ -1,4 +1,4 @@
-import { FORCED_BETA_TEST } from "./beta";
+import { BETA_TESTS, FORCED_BETA_TEST } from "./beta";
 import { Broadcast } from "./broadcast";
 import { DEFAULT_THEME_NAME, EXTENSION_NAME } from "./constants";
 import { DEFAULT_THEMES, LAUSD_THEMES } from "./default-themes";
@@ -15,7 +15,7 @@ class SPlusSetting<T> {
     public onInit: (value: T, inputElement?: HTMLElementWithValue) => T;
     public onPreviewChange?: (inputElement: HTMLElementWithValue) => void;
     public onSave: (inputElement: HTMLElementWithValue) => T;
-    public onShown?: () => void;
+    public onShown?: (inputElement: HTMLElementWithValue) => void;
 
     public constructor(
         public name: string,
@@ -35,7 +35,7 @@ class SPlusSetting<T> {
             onInit?: (value: T, inputElement?: HTMLElementWithValue) => T;
             onPreviewChange?: (inputElement: HTMLElementWithValue) => void;
             onSave?: (inputElement: HTMLElementWithValue) => T;
-            onShown?: () => void;
+            onShown?: (inputElement: HTMLElementWithValue) => void;
         } = {}
     ) {
         this.config = config ?? {};
@@ -144,12 +144,62 @@ export const Settings = {
         "text",
         "sync",
         {
-            config: {
-                disabled:
-                    FORCED_BETA_TEST || LegacySetting.getValue("analytics", "sync") !== "enabled"
-                        ? true
-                        : undefined,
-                placeholder: FORCED_BETA_TEST ? FORCED_BETA_TEST : "",
+            onInit: (value, element) => {
+                if (FORCED_BETA_TEST) {
+                    element!.setAttribute("disabled", "");
+                    element!.setAttribute("placeholder", FORCED_BETA_TEST);
+                } else if (LegacySetting.getValue("analytics", "sync") !== "enabled") {
+                    element!.setAttribute("disabled", "");
+                    element!.setAttribute(
+                        "placeholder",
+                        "Enable anonymous usage statistics to use beta features"
+                    );
+                } else {
+                    element!.removeAttribute("disabled");
+                    element!.removeAttribute("placeholder");
+                }
+                return value;
+            },
+            onSave: element => {
+                let new_test = element.value;
+                let test_link = BETA_TESTS[new_test];
+                let current_test = LegacySetting.getValue("beta", "sync", "");
+
+                if (new_test === "" && current_test) {
+                    if (
+                        confirm(
+                            `Are you sure you want to disable the "${current_test}" beta test? You will need to reload the page to see the changes.`
+                        )
+                    ) {
+                        return new_test;
+                    }
+                } else if (test_link) {
+                    if (new_test === current_test) {
+                        return new_test;
+                    } else if (current_test) {
+                        if (
+                            !confirm(
+                                `Are you sure you want to disable the "${current_test}" beta test and enable the "${new_test}" beta test? This will open a document with information about how the new test works. You will need to reload the page to see the changes.`
+                            )
+                        ) {
+                            return current_test;
+                        }
+                    } else {
+                        if (
+                            !confirm(
+                                `Are you sure you want to enable the "${new_test}" beta test? This will open a document with information about how the test works. You will need to reload the page to see the changes.`
+                            )
+                        ) {
+                            return current_test;
+                        }
+                    }
+
+                    window.open(test_link.url, "_blank");
+                    return new_test;
+                } else {
+                    alert("The βeta Code you entered was invalid");
+                    return current_test;
+                }
             },
         }
     ),

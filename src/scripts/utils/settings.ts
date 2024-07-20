@@ -14,7 +14,7 @@ export class LegacySetting {
     onmodify?: (element: HTMLElementWithValue) => void;
     onsave: (setting: HTMLElementWithValue) => any;
     onload: (value: any, element?: HTMLElementWithValue) => any;
-    onshown?: () => any;
+    onshown?: (element: HTMLElementWithValue) => any;
 
     static settings: { [s: string]: LegacySetting } = {};
     static rawSyncStorage: { [s: string]: any } = {};
@@ -32,7 +32,7 @@ export class LegacySetting {
         onload: (arg0: any, element?: HTMLElementWithValue) => any,
         onmodify: ((arg0: HTMLElementWithValue) => void) | undefined,
         onsave: (arg0: HTMLElementWithValue) => any,
-        onshown?: () => any,
+        onshown?: (element: HTMLElementWithValue) => any,
         storageLocation: "local" | "sync" = "sync"
     ) {
         this.name = name;
@@ -335,8 +335,9 @@ export class LegacySetting {
 
     static onShown() {
         for (let setting in LegacySetting.settings) {
-            if (LegacySetting.settings[setting].onshown) {
-                LegacySetting.settings[setting].onshown!();
+            let legacySetting = LegacySetting.settings[setting];
+            if (legacySetting.onshown) {
+                legacySetting.onshown!(legacySetting.getElement());
             }
         }
     }

@@ -91,6 +91,7 @@ export async function updateSettings() {
                 Settings.Broadcasts.settingsMenuElement,
                 Settings.BypassLinkRedirects.settingsMenuElement,
                 Settings.PersistSessionCookies.settingsMenuElement,
+                Settings.BetaCode.settingsMenuElement,
                 createElement("div", ["setting-entry"], {}, [
                     createElement("h2", ["setting-title"], {}, [
                         createElement("a", [], {
