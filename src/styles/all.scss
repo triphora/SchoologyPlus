@@ -1580,6 +1580,7 @@ Should not be shown
         visibility: hidden;
         opacity: 0;
         transition: opacity 0.5s;
+        z-index: 99999;
     }
 
     &:hover::after {
@@ -1652,6 +1653,24 @@ Should not be shown
             &.splus-grades-ignored .splus-grades-score-wrapper {
                 @include tooltipped(
                     "This assignment is ignored in grade calculations",
+                    underline wavy gray
+                );
+            }
+        }
+
+        .splus-grades-category {
+            &.splus-grades-ignored .awarded-grade {
+                @include tooltipped(
+                    "This category is ignored in grade calculations since it is not weighted",
+                    underline wavy gray
+                );
+            }
+        }
+
+        .splus-grades-period {
+            &.splus-grades-ignored .awarded-grade {
+                @include tooltipped(
+                    "This grading period is ignored in grade calculations since it has a weight of 0%",
                     underline wavy gray
                 );
             }
