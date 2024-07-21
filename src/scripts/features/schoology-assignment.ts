@@ -11,6 +11,7 @@ export class SchoologyAssignment {
     public exception?: string;
     public isMissing: boolean = false;
     public failedToLoad: boolean = false;
+    public sgyGradeFactor: number = 1;
 
     private _isDropped: boolean;
     private _points?: number;
@@ -80,6 +81,7 @@ export class SchoologyAssignment {
     private _elem_sgyGradeWrapper: HTMLElement | null = null;
     private _elem_whatIfTextBox: HTMLElement | null = null;
     private _elem_scoreWrapper: HTMLElement | null = null;
+    private _elem_gradeFactor: HTMLElement | null = null;
 
     private initElements() {
         this._elem_title = this.element.querySelector<HTMLAnchorElement>(
@@ -107,9 +109,18 @@ export class SchoologyAssignment {
         this._elem_maxPoints = createElement("span", ["max-grade", "splus-grades-grade-value"], {
             textContent: "—",
         });
+        this._elem_gradeFactor = createElement("span", ["splus-grades-grade-factor"], {
+            textContent: "x1",
+        });
         this._elem_whatIfTextBox = createElement("span", ["splus-grades-what-if-edit"], {
             textContent: "—",
             onblur: this.whatIfGradeChanged.bind(this),
+            onkeydown: event => {
+                if (event.which === 13) {
+                    (event.target as HTMLElement).blur();
+                    window.getSelection()?.removeAllRanges();
+                }
+            },
             contentEditable: "true",
         });
         this._elem_percent = createElement(
@@ -142,7 +153,8 @@ export class SchoologyAssignment {
             this._elem_scoreWrapper,
             this._elem_sgyGradeWrapper!,
             createElement("br"),
-            this._elem_percent
+            this._elem_percent,
+            this._elem_gradeFactor
         );
 
         this._elem_sgyGradeWrapper!.append(this._elem_editButton);
@@ -153,6 +165,11 @@ export class SchoologyAssignment {
         conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
         conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
         conditionalClass(this.element, !!this.exception, "splus-grades-has-exception");
+        conditionalClass(
+            this.element,
+            !!this._elem_exceptionIcon,
+            "splus-grades-has-exception-icon"
+        );
         conditionalClass(this.element, this.isModified, "splus-grades-modified");
         conditionalClass(this.element, this.getIsDropped(whatIf), "dropped");
         conditionalClass(
@@ -161,12 +178,25 @@ export class SchoologyAssignment {
             "splus-grades-ignored"
         );
 
+        let apiAssignment = this.course.getApiAssignment(this.id);
+        if (apiAssignment) {
+            // todo: also handle "exclude from grade" and categories that treat assignments equally
+            this.sgyGradeFactor = Number.parseFloat(apiAssignment.factor);
+        }
+        conditionalClass(
+            this.element,
+            this.sgyGradeFactor !== 1,
+            "splus-grades-grade-factor-enabled"
+        );
+        this._elem_gradeFactor!.textContent = `x${this.sgyGradeFactor}`;
+        this._elem_gradeFactor!.title = `Your instructor made this assignment worth ${this.sgyGradeFactor}x its normal value`;
+
         if (!this.isLoading) {
             this._elem_points!.textContent = this.getPoints(whatIf)?.toString() ?? "—";
             this._elem_maxPoints!.textContent = this.getMaxPoints(whatIf)?.toString() ?? "—";
-            this._elem_whatIfTextBox!.textContent = `${this.getPoints(
-                whatIf
-            )} / ${this.getMaxPoints(whatIf)}`;
+            this._elem_whatIfTextBox!.textContent = `${
+                this.getPoints(whatIf) ?? 0
+            } / ${this.getMaxPoints(whatIf)}`;
             this._elem_percent!.textContent = this.getGradePercentageString(whatIf);
             this._elem_percent!.title = this.getGradePercentageDetailsString(whatIf);
         }
@@ -268,7 +298,7 @@ export class SchoologyAssignment {
         let listSearchError: any = null;
 
         try {
-            let listSearch = this.course.apiCourseAssignments;
+            let listSearch = this.course.apiCourseGrades;
             if (listSearch && listSearch.section.length > 0) {
                 // success case
                 let jsonAssignment = listSearch.section[0].period
@@ -336,6 +366,13 @@ export class SchoologyAssignment {
             return;
         }
 
+        if (shouldLoadPoints() && !needToLoadPoints()) {
+            Logger.warn(
+                `Failed to load points for assignment ${this.id} from API, but the assignment is not consequential for calculations`
+            );
+            return;
+        }
+
         this.failedToLoad = true;
         Logger.error(
             `Failed to load points for assignment "${this.name}" (${this.id}) from category "${this.category.name}" from period "${this.category.period.name}" from course "${this.category.period.course.name}" (${this.category.period.course.id})`,
@@ -380,8 +417,8 @@ export class SchoologyAssignment {
     public getGradePercentageString(whatIf: boolean = false) {
         let gradePercent = this.getGradePercent(whatIf);
 
-        if (this.isLoading) return "LOADING";
-        if (this.failedToLoad) return "ERR";
+        if (!this.isModified && this.isLoading) return "LOADING";
+        if (!this.isModified && this.failedToLoad) return "ERR";
         if (gradePercent === undefined) return "—";
         if (gradePercent === Number.POSITIVE_INFINITY) return "EC";
         return `${Math.round(gradePercent)}%`;
@@ -390,8 +427,8 @@ export class SchoologyAssignment {
     public getGradePercentageDetailsString(whatIf: boolean = false) {
         let gradePercent = this.getGradePercent(whatIf);
 
-        if (this.isLoading) return "Loading grade percentage...";
-        if (this.failedToLoad) return "Failed to load grade percentage";
+        if (!this.isModified && this.isLoading) return "Loading grade percentage...";
+        if (!this.isModified && this.failedToLoad) return "Failed to load grade percentage";
         if (gradePercent === undefined) return "—";
         if (gradePercent === Number.POSITIVE_INFINITY)
             return `${this.getPoints(whatIf)} points of Extra Credit`;

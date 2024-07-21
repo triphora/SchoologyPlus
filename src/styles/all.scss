@@ -1607,10 +1607,26 @@ Should not be shown
         display: none;
     }
 
+    .splus-grades-grade-factor {
+        display: none;
+        color: var(--contrast-text-color) !important;
+        background: #3aa406 !important;
+        margin-left: 3px;
+        padding: 1px 3px;
+        border-radius: 3px;
+        cursor: help;
+    }
+
+    .splus-grades-assignment {
+        &.splus-grades-grade-factor-enabled .splus-grades-grade-factor {
+            display: inline;
+        }
+    }
+
     // What-If Grades disabled
     &:not(.splus-what-if-grades-v2-enabled) {
         .splus-grades-assignment {
-            &.splus-grades-has-exception {
+            &.splus-grades-has-exception.splus-grades-has-exception-icon {
                 .rounded-grade {
                     display: none;
                 }
@@ -1659,16 +1675,23 @@ Should not be shown
         }
 
         .splus-grades-category {
-            &.splus-grades-ignored .awarded-grade {
+            &.splus-grades-ignored .title {
                 @include tooltipped(
                     "This category is ignored in grade calculations since it is not weighted",
                     underline wavy gray
                 );
             }
+
+            &.splus-grades-method-percent .max-grade {
+                @include tooltipped(
+                    "Assuming that assignments are weighted equally",
+                    underline wavy gold
+                );
+            }
         }
 
         .splus-grades-period {
-            &.splus-grades-ignored .awarded-grade {
+            &.splus-grades-ignored .title {
                 @include tooltipped(
                     "This grading period is ignored in grade calculations since it has a weight of 0%",
                     underline wavy gray

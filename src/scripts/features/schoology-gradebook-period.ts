@@ -148,23 +148,13 @@ export class SchoologyGradebookPeriod {
 
     public getGradePercent(whatIf: boolean = false) {
         if (this.categoriesAreWeighted) {
-            let weightedPoints = this.categories.reduce((acc, category) => {
+            let gradePercent = this.categories.reduce((acc, category) => {
                 if (category.weight === undefined) return acc;
 
-                return acc + category.getPoints(whatIf) * category.weight;
+                return acc + (category.getGradePercent(whatIf) ?? 0) * category.weight;
             }, 0);
 
-            let weightedMaxPoints = this.categories.reduce((acc, category) => {
-                if (category.weight === undefined) return acc;
-
-                return acc + category.getMaxPoints(whatIf) * category.weight;
-            }, 0);
-
-            if (weightedPoints === 0 && weightedMaxPoints === 0) return undefined;
-            if (weightedMaxPoints === 0) return Number.POSITIVE_INFINITY;
-            if (weightedPoints === 0) return 0;
-
-            return (weightedPoints * 100) / weightedMaxPoints;
+            return gradePercent;
         }
 
         let points = this.getPoints(whatIf);
@@ -188,8 +178,8 @@ export class SchoologyGradebookPeriod {
     public getGradePercentageString(whatIf: boolean = false) {
         let gradePercent = this.getGradePercent(whatIf);
 
-        if (this.isLoading) return "LOADING";
-        if (this.failedToLoad) return "ERR";
+        if (!this.isModified && this.isLoading) return "LOADING";
+        if (!this.isModified && this.failedToLoad) return "ERR";
         if (gradePercent === undefined) return "—";
         if (gradePercent === Number.POSITIVE_INFINITY) return "EC";
         return `${Math.round(gradePercent * 100) / 100}%`;
@@ -198,8 +188,8 @@ export class SchoologyGradebookPeriod {
     public getGradePercentageDetailsString(whatIf: boolean = false) {
         let gradePercent = this.getGradePercent(whatIf);
 
-        if (this.isLoading) return "Loading grade percentage...";
-        if (this.failedToLoad) return "Failed to load grade percentage";
+        if (!this.isModified && this.isLoading) return "Loading grade percentage...";
+        if (!this.isModified && this.failedToLoad) return "Failed to load grade percentage";
         if (gradePercent === undefined) return "—";
         if (gradePercent === Number.POSITIVE_INFINITY) return "Extra Credit";
         return `${gradePercent}%`;

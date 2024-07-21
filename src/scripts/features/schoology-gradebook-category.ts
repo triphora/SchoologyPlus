@@ -1,5 +1,6 @@
 import { EXTENSION_NAME } from "../utils/constants";
 import { conditionalClass, createElement, getTextNodeContent } from "../utils/dom";
+import { numbersNearlyMatch } from "../utils/math";
 import { SchoologyAssignment } from "./schoology-assignment";
 import { SchoologyGradebookPeriod } from "./schoology-gradebook-period";
 import { enableWhatIfGrades, whatIfGradesEnabled } from "./what-if-grades";
@@ -51,7 +52,8 @@ export class SchoologyGradebookCategory {
     private _elem_gradeColumnRight: HTMLElement | null = null;
     private _elem_letterGrade: HTMLElement | null = null;
 
-    private schoologyAwardedGrade: string | null = null;
+    private sgyAwardedGrade: string | null = null;
+    private sgyAwardedGradeValue: number | null = null;
 
     private initElements() {
         this._elem_gradeColumnCenter = this.element.querySelector(
@@ -66,7 +68,11 @@ export class SchoologyGradebookCategory {
             this._elem_awardedGrade.classList.remove("no-grade");
         }
 
-        this.schoologyAwardedGrade = this._elem_awardedGrade.textContent!;
+        this.sgyAwardedGrade = this._elem_awardedGrade.textContent!;
+        if (this.sgyAwardedGrade) {
+            let gradeMatch = this.sgyAwardedGrade.match(/[\d\.]+/);
+            this.sgyAwardedGradeValue = gradeMatch ? Number.parseFloat(gradeMatch[0]) : null;
+        }
         this._elem_awardedGrade.innerHTML = "";
 
         this._elem_totalPoints = createElement("span", ["rounded-grade"], { textContent: "—" });
@@ -79,7 +85,7 @@ export class SchoologyGradebookCategory {
         this._elem_gradeColumnRight.classList.remove("comment-column");
 
         this._elem_letterGrade = this._elem_gradeColumnRight.querySelector(".td-content-wrapper")!;
-        this._elem_letterGrade.textContent = this.schoologyAwardedGrade;
+        this._elem_letterGrade.textContent = this.sgyAwardedGrade;
 
         this.initAddAssignmentButton();
     }
@@ -140,16 +146,41 @@ export class SchoologyGradebookCategory {
             !this.weight && this.period.categoriesAreWeighted,
             "splus-grades-ignored"
         );
+        conditionalClass(
+            this.element,
+            this.assumedGradingMethod === "no-data",
+            "splus-grades-method-no-data"
+        );
+        conditionalClass(
+            this.element,
+            this.assumedGradingMethod === "no-match",
+            "splus-grades-method-no-match"
+        );
+        conditionalClass(
+            this.element,
+            this.assumedGradingMethod === "percent",
+            "splus-grades-method-percent"
+        );
+        conditionalClass(
+            this.element,
+            this.assumedGradingMethod === "points",
+            "splus-grades-method-points"
+        );
 
         if (!this.isLoading) {
-            this._elem_totalPoints!.textContent = this.getPoints(whatIf).toString();
-            this._elem_maxPoints!.textContent = ` / ${this.getMaxPoints(whatIf)}`;
+            if (this.assignmentsWeightedEqually) {
+                this._elem_totalPoints!.textContent = "";
+                this._elem_maxPoints!.textContent = "% based grading";
+            } else {
+                this._elem_totalPoints!.textContent = this.getPoints(whatIf).toString();
+                this._elem_maxPoints!.textContent = ` / ${this.getMaxPoints(whatIf)}`;
+            }
 
             if (whatIf) {
                 this._elem_letterGrade!.textContent = this.getLetterGradeString(whatIf);
                 this._elem_letterGrade!.title = `Letter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.course.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
             } else {
-                this._elem_letterGrade!.textContent = this.schoologyAwardedGrade;
+                this._elem_letterGrade!.textContent = this.sgyAwardedGrade;
                 this._elem_letterGrade!.title = `S+ calculated this grade as ${this.getLetterGradeString(
                     whatIf
                 )}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${
@@ -187,18 +218,71 @@ export class SchoologyGradebookCategory {
         return this.assignments.some(assignment => assignment.isModified);
     }
 
-    public getPoints(whatIf: boolean = false) {
+    public get assignmentsWeightedEqually() {
+        switch (this.assumedGradingMethod) {
+            case "percent":
+                return true;
+            case "points":
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    public get assumedGradingMethod() {
+        if (this.sgyAwardedGradeValue === null) return "no-data";
+
+        let percentNormal = (this.getPointsNormal() * 100) / this.getMaxPointsNormal();
+        let percentEqual = (this.getPointsEqualWeights() * 100) / this.getMaxPointsEqualWeights();
+
+        // if percentNormal within 0.1% of schoology's calculation, assume normal
+        if (numbersNearlyMatch(percentNormal, this.sgyAwardedGradeValue, 0.1)) return "points";
+
+        // if percentEqual within 0.1% of schoology's calculation, assume equal
+        if (numbersNearlyMatch(percentEqual, this.sgyAwardedGradeValue, 0.1)) return "percent";
+
+        // if neither are close to schoology's calculation, assume normal
+        return "no-match";
+    }
+
+    private getPointsEqualWeights(whatIf: boolean = false) {
         return this.assignments.reduce((acc, assignment) => {
             if (assignment.getIgnoreInCalculations(whatIf)) return acc;
-            return acc + (assignment.getPoints(whatIf) ?? 0);
+            return acc + (assignment.getGradePercent(whatIf) ?? 0) * assignment.sgyGradeFactor;
         }, 0);
     }
 
-    public getMaxPoints(whatIf: boolean = false) {
+    private getMaxPointsEqualWeights(whatIf: boolean = false) {
         return this.assignments.reduce((acc, assignment) => {
             if (assignment.getIgnoreInCalculations(whatIf)) return acc;
-            return acc + (assignment.getMaxPoints(whatIf) ?? 0);
+            return acc + 100 * assignment.sgyGradeFactor;
         }, 0);
+    }
+
+    private getPointsNormal(whatIf: boolean = false) {
+        return this.assignments.reduce((acc, assignment) => {
+            if (assignment.getIgnoreInCalculations(whatIf)) return acc;
+            return acc + (assignment.getPoints(whatIf) ?? 0) * assignment.sgyGradeFactor;
+        }, 0);
+    }
+
+    private getMaxPointsNormal(whatIf: boolean = false) {
+        return this.assignments.reduce((acc, assignment) => {
+            if (assignment.getIgnoreInCalculations(whatIf)) return acc;
+            return acc + (assignment.getMaxPoints(whatIf) ?? 0) * assignment.sgyGradeFactor;
+        }, 0);
+    }
+
+    public getPoints(whatIf: boolean = false) {
+        return this.assignmentsWeightedEqually
+            ? this.getPointsEqualWeights(whatIf)
+            : this.getPointsNormal(whatIf);
+    }
+
+    public getMaxPoints(whatIf: boolean = false) {
+        return this.assignmentsWeightedEqually
+            ? this.getMaxPointsEqualWeights(whatIf)
+            : this.getMaxPointsNormal(whatIf);
     }
 
     public getGradePercent(whatIf: boolean = false) {
@@ -223,8 +307,8 @@ export class SchoologyGradebookCategory {
     public getGradePercentageString(whatIf: boolean = false) {
         let gradePercent = this.getGradePercent(whatIf);
 
-        if (this.isLoading) return "LOADING";
-        if (this.failedToLoad) return "ERR";
+        if (!this.isModified && this.isLoading) return "LOADING";
+        if (!this.isModified && this.failedToLoad) return "ERR";
         if (gradePercent === undefined) return "—";
         if (gradePercent === Number.POSITIVE_INFINITY) return "EC";
         return `${Math.round(gradePercent * 100) / 100}%`;
@@ -233,8 +317,8 @@ export class SchoologyGradebookCategory {
     public getGradePercentageDetailsString(whatIf: boolean = false) {
         let gradePercent = this.getGradePercent(whatIf);
 
-        if (this.isLoading) return "Loading grade percentage...";
-        if (this.failedToLoad) return "Failed to load grade percentage";
+        if (!this.isModified && this.isLoading) return "Loading grade percentage...";
+        if (!this.isModified && this.failedToLoad) return "Failed to load grade percentage";
         if (gradePercent === undefined) return "—";
         if (gradePercent === Number.POSITIVE_INFINITY)
             return `${this.getPoints(whatIf)} points of Extra Credit`;

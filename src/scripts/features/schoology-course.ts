@@ -5,7 +5,7 @@ import { Logger } from "../utils/logger";
 import { getGradingScale } from "../utils/settings";
 import { Settings } from "../utils/splus-settings";
 import { SchoologyGradebookPeriod } from "./schoology-gradebook-period";
-import { getLetterGrade } from "./what-if-grades";
+import { getLetterGrade, whatIfGradesEnabled } from "./what-if-grades";
 
 /*
     Basic idea of what to do:
@@ -20,6 +20,7 @@ export class SchoologyCourse {
     public gradebookTable: HTMLTableElement;
 
     private _cachedListSearch: any = undefined;
+    private _cachedAssignmentList: any = undefined;
 
     constructor(public element: HTMLElement) {
         this.element.classList.add("splus-grades-course");
@@ -48,6 +49,9 @@ export class SchoologyCourse {
         }
 
         this.render();
+
+        await this.cacheAssignmentList();
+        this.renderAllAssignments(whatIfGradesEnabled());
     }
 
     private _elem_title: HTMLAnchorElement | null = null;
@@ -64,7 +68,7 @@ export class SchoologyCourse {
             this._elem_courseGrade = awardedGrade;
         } else {
             this._elem_courseGrade = createElement("span", [], {
-                textContent: `${this.apiCourseAssignments.section[0].final_grade
+                textContent: `${this.apiCourseGrades.section[0].final_grade
                     .at(-1)
                     .grade.toString()}%`,
             });
@@ -136,28 +140,18 @@ export class SchoologyCourse {
     }
 
     public getGradePercent(whatIf: boolean = false) {
-        let weightedPoints = this.periods.reduce((acc, period) => {
-            if (period.weight === undefined) return acc;
-            return acc + period.getPoints(whatIf) * period.weight;
+        let gradePercent = this.periods.reduce((acc, period) => {
+            return acc + (period.getGradePercent(whatIf) ?? 0) * period.weight;
         }, 0);
 
-        let weightedMaxPoints = this.periods.reduce((acc, period) => {
-            if (period.weight === undefined) return acc;
-            return acc + period.getMaxPoints(whatIf) * period.weight;
-        }, 0);
-
-        if (weightedPoints === 0 && weightedMaxPoints === 0) return undefined;
-        if (weightedMaxPoints === 0) return Number.POSITIVE_INFINITY;
-        if (weightedPoints === 0) return 0;
-
-        return (weightedPoints * 100) / weightedMaxPoints;
+        return gradePercent;
     }
 
     public getGradePercentageString(whatIf: boolean = false) {
         let gradePercent = this.getGradePercent(whatIf);
 
-        if (this.isLoading) return "LOADING";
-        if (this.failedToLoad) return "ERR";
+        if (!this.isModified && this.isLoading) return "LOADING";
+        if (!this.isModified && this.failedToLoad) return "ERR";
         if (gradePercent === undefined) return "—";
         if (gradePercent === Number.POSITIVE_INFINITY) return "EC";
         return `${Math.round(gradePercent * 100) / 100}%`;
@@ -166,8 +160,8 @@ export class SchoologyCourse {
     public getGradePercentageDetailsString(whatIf: boolean = false) {
         let gradePercent = this.getGradePercent(whatIf);
 
-        if (this.isLoading) return "Loading grade percentage...";
-        if (this.failedToLoad) return "Failed to load grade percentage";
+        if (!this.isModified && this.isLoading) return "Loading grade percentage...";
+        if (!this.isModified && this.failedToLoad) return "Failed to load grade percentage";
         if (gradePercent === undefined) return "—";
         if (gradePercent === Number.POSITIVE_INFINITY) return "Extra Credit";
         return `${gradePercent}%`;
@@ -209,8 +203,43 @@ export class SchoologyCourse {
         }
     }
 
-    public get apiCourseAssignments() {
+    private async cacheAssignmentList() {
+        try {
+            let hasNext = true;
+            let allAssignments = [];
+            let page = 0;
+            while (hasNext) {
+                let response = await fetchApi(
+                    `sections/${this.id}/assignments?start=${page * 50}&limit=50`
+                );
+
+                if (!response.ok) {
+                    throw { status: response.status, error: response.statusText };
+                }
+
+                let data = await response.json();
+                allAssignments.push(...data.assignment);
+                hasNext = !!data.links.next;
+                page++;
+            }
+
+            this._cachedAssignmentList = allAssignments;
+        } catch (err) {
+            Logger.error("Failed to cache assignment list", err);
+            return null;
+        }
+    }
+
+    public get apiCourseGrades() {
         return this._cachedListSearch;
+    }
+
+    public get apiCourseAssignments(): any[] | undefined | null {
+        return this._cachedAssignmentList;
+    }
+
+    public getApiAssignment(assignmentId: string) {
+        return this.apiCourseAssignments?.find((a: any) => a.id === Number.parseInt(assignmentId));
     }
 
     public get gradingScale() {
