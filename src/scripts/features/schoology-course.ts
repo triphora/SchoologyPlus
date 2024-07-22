@@ -67,11 +67,18 @@ export class SchoologyCourse {
         if (awardedGrade) {
             this._elem_courseGrade = awardedGrade;
         } else {
-            this._elem_courseGrade = createElement("span", [], {
-                textContent: `${this.apiCourseGrades.section[0].final_grade
-                    .at(-1)
-                    .grade.toString()}%`,
-            });
+            try {
+                this._elem_courseGrade = createElement("span", [], {
+                    textContent: `${this.apiCourseGrades.section[0].final_grade
+                        .at(-1)
+                        .grade.toString()}%`,
+                });
+            } catch (ex) {
+                Logger.warn(
+                    `Could not find final_grade for course ${this.id} (${this.name})`,
+                    this
+                );
+            }
         }
         this._elem_gradeText = createElement(
             "span",
@@ -103,7 +110,8 @@ export class SchoologyCourse {
     }
 
     private addLetterGrade(elem: HTMLElement, whatIf: boolean = false) {
-        let letterGrade = this.getLetterGrade(this.getGradePercent(whatIf)!);
+        let gradePercent = this.getGradePercent(whatIf);
+        let letterGrade = gradePercent !== undefined ? this.getLetterGrade(gradePercent) : null;
 
         if (letterGrade === null) {
             elem.textContent = this.getGradePercentageString(whatIf);
@@ -112,11 +120,9 @@ export class SchoologyCourse {
         }
 
         elem.textContent = this.getLetterGradeString(whatIf);
-        elem.title = `${this.getGradePercentageDetailsString(
-            whatIf
-        )}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${
-            this.gradingScaleString
-        }\nTo change this grading scale, find 'Course Options' on the page for this course`;
+        elem.title = `${this.getGradePercentageDetailsString(whatIf)}\n${
+            this.gradingScaleCalculationNotice
+        }`;
     }
 
     public get categories() {
@@ -140,9 +146,19 @@ export class SchoologyCourse {
     }
 
     public getGradePercent(whatIf: boolean = false) {
-        let gradePercent = this.periods.reduce((acc, period) => {
-            return acc + (period.getGradePercent(whatIf) ?? 0) * period.weight;
-        }, 0);
+        let gradePercent = 0;
+        let anyValidGrades = false;
+
+        for (let period of this.periods) {
+            if (period.weight !== 0) {
+                let periodGradePercent = period.getGradePercent(whatIf);
+                if (periodGradePercent === undefined) continue;
+                gradePercent += periodGradePercent * period.weight;
+                anyValidGrades = true;
+            }
+        }
+
+        if (!anyValidGrades) return undefined;
 
         return gradePercent;
     }
@@ -243,6 +259,7 @@ export class SchoologyCourse {
     }
 
     public get gradingScale() {
+        if (Settings.CustomGradingScales.value === "disabled") return null;
         return getGradingScale(this.id);
     }
 
@@ -255,15 +272,22 @@ export class SchoologyCourse {
     }
 
     public get gradingScaleString() {
+        if (this.gradingScale === null) return "";
+
         return Object.keys(this.gradingScale)
             .sort((a, b) => Number.parseFloat(a) - Number.parseFloat(b))
             .reverse()
-            .map(x => `${this.gradingScale[x]}: ${x}%`)
+            .map(x => `${this.gradingScale![x]}: ${x}%`)
             .join("\n");
     }
 
+    public get gradingScaleCalculationNotice() {
+        if (this.gradingScale === null) return "";
+        return `Letter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
+    }
+
     public getLetterGrade(percentage: number): string | null {
-        if (Settings.CustomGradingScales.value == "disabled") return null;
+        if (this.gradingScale === null) return null;
         return getLetterGrade(this.gradingScale, percentage);
     }
 }

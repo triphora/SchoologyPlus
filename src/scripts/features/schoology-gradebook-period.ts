@@ -96,14 +96,12 @@ export class SchoologyGradebookPeriod {
 
             if (whatIf) {
                 this._elem_letterGrade!.textContent = this.getLetterGradeString(whatIf);
-                this._elem_letterGrade!.title = `Letter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.course.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
+                this._elem_letterGrade!.title = this.course.gradingScaleCalculationNotice;
             } else {
                 this._elem_letterGrade!.textContent = this.schoologyAwardedGrade;
                 this._elem_letterGrade!.title = `S+ calculated this grade as ${this.getLetterGradeString(
                     whatIf
-                )}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${
-                    this.course.gradingScaleString
-                }\nTo change this grading scale, find 'Course Options' on the page for this course`;
+                )}\n${this.course.gradingScaleCalculationNotice}`;
             }
         }
 
@@ -172,7 +170,9 @@ export class SchoologyGradebookPeriod {
 
         if (gradePercent === undefined) return "—";
         let letterGrade = this.course.getLetterGrade(gradePercent);
-        return `${letterGrade} (${this.getGradePercentageString(whatIf)})`;
+        return letterGrade === null
+            ? this.getGradePercentageString(whatIf)
+            : `${letterGrade} (${this.getGradePercentageString(whatIf)})`;
     }
 
     public getGradePercentageString(whatIf: boolean = false) {

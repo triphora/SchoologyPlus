@@ -1,6 +1,7 @@
 import { EXTENSION_NAME } from "../utils/constants";
 import { conditionalClass, createElement, getTextNodeContent } from "../utils/dom";
 import { numbersNearlyMatch } from "../utils/math";
+import { Settings } from "../utils/splus-settings";
 import { SchoologyAssignment } from "./schoology-assignment";
 import { SchoologyGradebookPeriod } from "./schoology-gradebook-period";
 import { enableWhatIfGrades, whatIfGradesEnabled } from "./what-if-grades";
@@ -168,24 +169,17 @@ export class SchoologyGradebookCategory {
         );
 
         if (!this.isLoading) {
-            if (this.assignmentsWeightedEqually) {
-                this._elem_totalPoints!.textContent = "";
-                this._elem_maxPoints!.textContent = "% based grading";
-            } else {
-                this._elem_totalPoints!.textContent = this.getPoints(whatIf).toString();
-                this._elem_maxPoints!.textContent = ` / ${this.getMaxPoints(whatIf)}`;
-            }
+            this._elem_totalPoints!.textContent = this.getPoints(whatIf).toString();
+            this._elem_maxPoints!.textContent = ` / ${this.getMaxPoints(whatIf)}`;
 
             if (whatIf) {
                 this._elem_letterGrade!.textContent = this.getLetterGradeString(whatIf);
-                this._elem_letterGrade!.title = `Letter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${this.course.gradingScaleString}\nTo change this grading scale, find 'Course Options' on the page for this course`;
+                this._elem_letterGrade!.title = this.course.gradingScaleCalculationNotice;
             } else {
                 this._elem_letterGrade!.textContent = this.sgyAwardedGrade;
                 this._elem_letterGrade!.title = `S+ calculated this grade as ${this.getLetterGradeString(
                     whatIf
-                )}\nLetter grade calculated by ${EXTENSION_NAME} using the following grading scale:\n${
-                    this.course.gradingScaleString
-                }\nTo change this grading scale, find 'Course Options' on the page for this course`;
+                )}\n${this.course.gradingScaleCalculationNotice}`;
             }
         }
 
@@ -248,6 +242,9 @@ export class SchoologyGradebookCategory {
     private getPointsEqualWeights(whatIf: boolean = false) {
         return this.assignments.reduce((acc, assignment) => {
             if (assignment.getIgnoreInCalculations(whatIf)) return acc;
+            // weird behavior from sgy: if max points is 0, treat extra credit as points as if all assignments are worth 100 points
+            if (assignment.getMaxPoints(whatIf) === 0)
+                return acc + (assignment.getPoints(whatIf) ?? 0) * assignment.sgyGradeFactor;
             return acc + (assignment.getGradePercent(whatIf) ?? 0) * assignment.sgyGradeFactor;
         }, 0);
     }
@@ -255,6 +252,7 @@ export class SchoologyGradebookCategory {
     private getMaxPointsEqualWeights(whatIf: boolean = false) {
         return this.assignments.reduce((acc, assignment) => {
             if (assignment.getIgnoreInCalculations(whatIf)) return acc;
+            if (assignment.getMaxPoints(whatIf) === 0) return acc;
             return acc + 100 * assignment.sgyGradeFactor;
         }, 0);
     }
@@ -301,7 +299,9 @@ export class SchoologyGradebookCategory {
 
         if (gradePercent === undefined) return "—";
         let letterGrade = this.course.getLetterGrade(gradePercent);
-        return `${letterGrade} (${this.getGradePercentageString(whatIf)})`;
+        return letterGrade === null
+            ? this.getGradePercentageString(whatIf)
+            : `${letterGrade} (${this.getGradePercentageString(whatIf)})`;
     }
 
     public getGradePercentageString(whatIf: boolean = false) {

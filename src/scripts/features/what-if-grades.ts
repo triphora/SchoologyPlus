@@ -45,8 +45,9 @@ export function loadWhatIfGrades() {
 
 function addCheckbox() {
     if (
-        !document.location.search.includes("past") ||
-        document.location.search.split("past=")[1] != "1"
+        // !document.location.search.includes("past") ||
+        // document.location.search.split("past=")[1] != "1"
+        true
     ) {
         let timeRow = document.getElementById("past-selector");
         let gradeModifLabelFirst = true;
