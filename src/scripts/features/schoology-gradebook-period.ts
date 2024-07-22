@@ -46,8 +46,9 @@ export class SchoologyGradebookPeriod {
     private _elem_maxPoints: HTMLElement | null = null;
     private _elem_gradeColumnRight: HTMLElement | null = null;
     private _elem_letterGrade: HTMLElement | null = null;
+    private _elem_gradeModifiedIndicator: HTMLElement | null = null;
 
-    private schoologyAwardedGrade: string | null = null;
+    private sgyAwardedGrade: string | null = null;
 
     private initElements() {
         this._elem_gradeColumnCenter = this.element.querySelector(
@@ -62,7 +63,7 @@ export class SchoologyGradebookPeriod {
             this._elem_awardedGrade.classList.remove("no-grade");
         }
 
-        this.schoologyAwardedGrade = this._elem_awardedGrade.textContent!;
+        this.sgyAwardedGrade = this._elem_awardedGrade.textContent!;
         this._elem_awardedGrade.innerHTML = "";
 
         this._elem_totalPoints = createElement("span", ["rounded-grade"], { textContent: "—" });
@@ -74,8 +75,19 @@ export class SchoologyGradebookPeriod {
         this._elem_gradeColumnRight.classList.add("grade-column", "grade-column-right");
         this._elem_gradeColumnRight.classList.remove("comment-column");
 
-        this._elem_letterGrade = this._elem_gradeColumnRight.querySelector(".td-content-wrapper")!;
-        this._elem_letterGrade.textContent = this.schoologyAwardedGrade;
+        let letterGradeParent = this._elem_gradeColumnRight.querySelector(".td-content-wrapper")!;
+        this._elem_letterGrade = createElement("span", ["splus-grades-letter-grade-text"], {
+            textContent: this.sgyAwardedGrade,
+        });
+        letterGradeParent.appendChild(this._elem_letterGrade);
+
+        this._elem_gradeModifiedIndicator = createElement(
+            "span",
+            ["splus-grades-modified-indicator"],
+            { textContent: "!" }
+        );
+
+        this._elem_letterGrade.after(this._elem_gradeModifiedIndicator);
     }
 
     public async render(whatIf: boolean = false) {
@@ -98,7 +110,7 @@ export class SchoologyGradebookPeriod {
                 this._elem_letterGrade!.textContent = this.getLetterGradeString(whatIf);
                 this._elem_letterGrade!.title = this.course.gradingScaleCalculationNotice;
             } else {
-                this._elem_letterGrade!.textContent = this.schoologyAwardedGrade;
+                this._elem_letterGrade!.textContent = this.sgyAwardedGrade;
                 this._elem_letterGrade!.title = `S+ calculated this grade as ${this.getLetterGradeString(
                     whatIf
                 )}\n${this.course.gradingScaleCalculationNotice}`;

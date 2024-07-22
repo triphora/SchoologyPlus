@@ -1,7 +1,6 @@
 import { EXTENSION_NAME } from "../utils/constants";
 import { conditionalClass, createElement, getTextNodeContent } from "../utils/dom";
 import { numbersNearlyMatch } from "../utils/math";
-import { Settings } from "../utils/splus-settings";
 import { SchoologyAssignment } from "./schoology-assignment";
 import { SchoologyGradebookPeriod } from "./schoology-gradebook-period";
 import { enableWhatIfGrades, whatIfGradesEnabled } from "./what-if-grades";
@@ -50,8 +49,10 @@ export class SchoologyGradebookCategory {
     private _elem_awardedGrade: HTMLElement | null = null;
     private _elem_totalPoints: HTMLElement | null = null;
     private _elem_maxPoints: HTMLElement | null = null;
+    private _elem_gradingMethodIndicator: HTMLElement | null = null;
     private _elem_gradeColumnRight: HTMLElement | null = null;
     private _elem_letterGrade: HTMLElement | null = null;
+    private _elem_gradeModifiedIndicator: HTMLElement | null = null;
 
     private sgyAwardedGrade: string | null = null;
     private sgyAwardedGradeValue: number | null = null;
@@ -69,6 +70,13 @@ export class SchoologyGradebookCategory {
             this._elem_awardedGrade.classList.remove("no-grade");
         }
 
+        this._elem_gradingMethodIndicator = createElement(
+            "span",
+            ["splus-grades-method-indicator"],
+            { textContent: "Σ", onclick: this.toggleGradingMode.bind(this) }
+        );
+        this._elem_awardedGrade.after(this._elem_gradingMethodIndicator);
+
         this.sgyAwardedGrade = this._elem_awardedGrade.textContent!;
         if (this.sgyAwardedGrade) {
             let gradeMatch = this.sgyAwardedGrade.match(/[\d\.]+/);
@@ -85,8 +93,19 @@ export class SchoologyGradebookCategory {
         this._elem_gradeColumnRight.classList.add("grade-column", "grade-column-right");
         this._elem_gradeColumnRight.classList.remove("comment-column");
 
-        this._elem_letterGrade = this._elem_gradeColumnRight.querySelector(".td-content-wrapper")!;
-        this._elem_letterGrade.textContent = this.sgyAwardedGrade;
+        let letterGradeParent = this._elem_gradeColumnRight.querySelector(".td-content-wrapper")!;
+        this._elem_letterGrade = createElement("span", ["splus-grades-letter-grade-text"], {
+            textContent: this.sgyAwardedGrade,
+        });
+        letterGradeParent.appendChild(this._elem_letterGrade);
+
+        this._elem_gradeModifiedIndicator = createElement(
+            "span",
+            ["splus-grades-modified-indicator"],
+            { textContent: "!" }
+        );
+
+        this._elem_letterGrade.after(this._elem_gradeModifiedIndicator);
 
         this.initAddAssignmentButton();
     }
@@ -167,12 +186,42 @@ export class SchoologyGradebookCategory {
             this.assumedGradingMethod === "points",
             "splus-grades-method-points"
         );
+        conditionalClass(
+            this.element,
+            this.getAssignmentsWeightedEqually(whatIf),
+            "splus-grades-assignments-weighted-equally"
+        );
+        conditionalClass(
+            this.element,
+            whatIf && this._whatIfGradingModeToggled,
+            "splus-grades-what-if-grading-mode-toggled"
+        );
 
         if (!this.isLoading) {
             this._elem_totalPoints!.textContent = this.getPoints(whatIf).toString();
             this._elem_maxPoints!.textContent = ` / ${this.getMaxPoints(whatIf)}`;
 
+            this._elem_gradingMethodIndicator!.textContent = this.getAssignmentsWeightedEqually(
+                whatIf
+            )
+                ? "%"
+                : "Σ";
+            this._elem_gradingMethodIndicator!.title = this.getAssignmentsWeightedEqually(whatIf)
+                ? "Category score is determined by treating all assignments as graded out of 100 points (weighted equally)."
+                : "Category score is determined by the total number of points of all assignments.";
+
+            if (this.getAssignmentsWeightedEqually(whatIf) && !this._whatIfGradingModeToggled) {
+                this._elem_gradingMethodIndicator!.title +=
+                    "\nSchoology Plus assumed this grading mode is correct based on Schoology's recorded grade for this category.";
+            }
+
+            if (!this.getAssignmentsWeightedEqually(whatIf) && !this._whatIfGradingModeToggled) {
+                this._elem_gradingMethodIndicator!.title += "This is the default grading mode.";
+            }
+
             if (whatIf) {
+                this._elem_gradingMethodIndicator!.title +=
+                    "\n\nClick to toggle grading method for this category for What-If Grades.";
                 this._elem_letterGrade!.textContent = this.getLetterGradeString(whatIf);
                 this._elem_letterGrade!.title = this.course.gradingScaleCalculationNotice;
             } else {
@@ -184,6 +233,15 @@ export class SchoologyGradebookCategory {
         }
 
         this.period.render(whatIf);
+    }
+
+    private toggleGradingMode() {
+        let whatIf = whatIfGradesEnabled();
+        if (!whatIf) return;
+
+        this._whatIfGradingModeToggled = !this._whatIfGradingModeToggled;
+
+        this.render(whatIf);
     }
 
     public addAssignment() {
@@ -209,18 +267,18 @@ export class SchoologyGradebookCategory {
     }
 
     public get isModified() {
-        return this.assignments.some(assignment => assignment.isModified);
+        return (
+            this._whatIfGradingModeToggled ||
+            this.assignments.some(assignment => assignment.isModified)
+        );
     }
 
-    public get assignmentsWeightedEqually() {
-        switch (this.assumedGradingMethod) {
-            case "percent":
-                return true;
-            case "points":
-                return false;
-            default:
-                return false;
-        }
+    private _whatIfGradingModeToggled = false;
+
+    public getAssignmentsWeightedEqually(whatIf: boolean = false) {
+        let assumedMethod = this.assumedGradingMethod === "percent";
+        if (!whatIf) return assumedMethod;
+        return this._whatIfGradingModeToggled ? !assumedMethod : assumedMethod;
     }
 
     public get assumedGradingMethod() {
@@ -272,13 +330,13 @@ export class SchoologyGradebookCategory {
     }
 
     public getPoints(whatIf: boolean = false) {
-        return this.assignmentsWeightedEqually
+        return this.getAssignmentsWeightedEqually(whatIf)
             ? this.getPointsEqualWeights(whatIf)
             : this.getPointsNormal(whatIf);
     }
 
     public getMaxPoints(whatIf: boolean = false) {
-        return this.assignmentsWeightedEqually
+        return this.getAssignmentsWeightedEqually(whatIf)
             ? this.getMaxPointsEqualWeights(whatIf)
             : this.getMaxPointsNormal(whatIf);
     }

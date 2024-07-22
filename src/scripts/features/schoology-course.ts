@@ -58,6 +58,7 @@ export class SchoologyCourse {
     private _elem_summary: HTMLElement | null = null;
     private _elem_courseGrade: HTMLElement | null = null;
     private _elem_gradeText: HTMLElement | null = null;
+    private _elem_gradeModifiedIndicator: HTMLElement | null = null;
 
     private initElements() {
         this._elem_title =
@@ -90,13 +91,21 @@ export class SchoologyCourse {
             { textContent: "LOADING" }
         );
         this._elem_title.appendChild(this._elem_gradeText);
+
+        this._elem_gradeModifiedIndicator = createElement(
+            "span",
+            ["splus-grades-course-modified-indicator"],
+            { textContent: "!" }
+        );
+
+        this._elem_gradeText.before(this._elem_gradeModifiedIndicator);
     }
 
     public async render(whatIf: boolean = false) {
         conditionalClass(this.element, this.isLoading, "splus-grades-loading");
         conditionalClass(this.element, this.failedToLoad, "splus-grades-failed");
         conditionalClass(this.element, this.isLoading || this.failedToLoad, "splus-grades-issue");
-        conditionalClass(this.element, this.isModified, "splus-grades-modified");
+        conditionalClass(this.element, this.isModified, "splus-grades-course-modified");
 
         if (!this.isLoading) {
             this.addLetterGrade(this._elem_gradeText!, whatIf);

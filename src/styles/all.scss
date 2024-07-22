@@ -1607,19 +1607,42 @@ Should not be shown
         display: none;
     }
 
+    .splus-grades-modified-indicator {
+        display: none;
+    }
+
     .splus-grades-grade-factor {
         display: none;
         color: var(--contrast-text-color) !important;
-        background: #3aa406 !important;
+        background: crimson !important;
         margin-left: 3px;
         padding: 1px 3px;
         border-radius: 3px;
         cursor: help;
     }
 
+    .splus-grades-method-indicator {
+        color: var(--contrast-text-color) !important;
+        background-color: #3aa406 !important;
+        margin-left: 5px;
+        padding: 1px 5px;
+        border-radius: 5px;
+        cursor: help;
+    }
+
     .splus-grades-assignment {
         &.splus-grades-grade-factor-enabled .splus-grades-grade-factor {
             display: inline;
+        }
+    }
+
+    .splus-grades-category {
+        &.splus-grades-assignments-weighted-equally .splus-grades-method-indicator {
+            background-color: darkviolet !important;
+        }
+
+        &.splus-grades-what-if-grading-mode-toggled .splus-grades-method-indicator::after {
+            content: "*";
         }
     }
 
@@ -1646,8 +1669,22 @@ Should not be shown
             }
         }
 
-        .splus-grades-modified {
-            border: 1px solid red;
+        .splus-grades-modified .splus-grades-modified-indicator,
+        .splus-grades-course-modified .splus-grades-course-modified-indicator {
+            display: inline;
+            color: var(--contrast-text-color);
+            background-color: red;
+            margin-left: 5px;
+            padding: 1px 5px;
+            border-radius: 5px;
+
+            @include tooltipped("This grade has been modified from its true value", none);
+        }
+
+        .splus-grades-course-modified .splus-grades-course-modified-indicator {
+            float: right;
+            margin-top: 5px;
+            margin-left: -10px;
         }
 
         .splus-whatif-editing {
@@ -1660,6 +1697,10 @@ Should not be shown
             .splus-grades-grade-value {
                 display: none;
             }
+        }
+
+        .splus-grades-method-indicator {
+            cursor: pointer;
         }
     }
 

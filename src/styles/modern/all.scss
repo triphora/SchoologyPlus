@@ -1067,9 +1067,15 @@ variable-intellisense {
         color: var(--text) !important;
     }
 
-    .splus-grades-grade-factor {
+    .splus-grades-grade-factor,
+    .splus-grades-method-indicator {
         color: var(--contrast-text) !important;
-        background: var(--grades) !important;
+    }
+
+    .splus-grades-course-modified-indicator,
+    .splus-grades-modified-indicator {
+        color: var(--contrast-text) !important;
+        background-color: var(--error) !important;
     }
 
     div.summary-course {

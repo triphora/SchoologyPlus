@@ -82,6 +82,7 @@ export class SchoologyAssignment {
     private _elem_whatIfTextBox: HTMLElement | null = null;
     private _elem_scoreWrapper: HTMLElement | null = null;
     private _elem_gradeFactor: HTMLElement | null = null;
+    private _elem_gradeModifiedIndicator: HTMLElement | null = null;
 
     private initElements() {
         this._elem_title = this.element.querySelector<HTMLAnchorElement>(
@@ -112,6 +113,11 @@ export class SchoologyAssignment {
         this._elem_gradeFactor = createElement("span", ["splus-grades-grade-factor"], {
             textContent: "x1",
         });
+        this._elem_gradeModifiedIndicator = createElement(
+            "span",
+            ["splus-grades-modified-indicator"],
+            { textContent: "!" }
+        );
         this._elem_whatIfTextBox = createElement("span", ["splus-grades-what-if-edit"], {
             textContent: "—",
             onblur: this.whatIfGradeChanged.bind(this),
@@ -154,7 +160,8 @@ export class SchoologyAssignment {
             this._elem_sgyGradeWrapper!,
             createElement("br"),
             this._elem_percent,
-            this._elem_gradeFactor
+            this._elem_gradeFactor,
+            this._elem_gradeModifiedIndicator
         );
 
         this._elem_sgyGradeWrapper!.append(this._elem_editButton);
