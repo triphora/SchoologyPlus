@@ -84,7 +84,10 @@ export class SchoologyGradebookPeriod {
         this._elem_gradeModifiedIndicator = createElement(
             "span",
             ["splus-grades-modified-indicator"],
-            { textContent: "!" }
+            {
+                textContent: "!",
+                title: "This grade has been modified from its true value with Schoology Plus",
+            }
         );
 
         this._elem_letterGrade.after(this._elem_gradeModifiedIndicator);

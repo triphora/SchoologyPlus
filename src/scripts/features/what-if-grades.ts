@@ -96,15 +96,19 @@ function addCheckbox() {
             ]
         );
 
+        let wrapper = createElement("div", ["splus-grades-what-if-wrapper"]);
+
         if (gradeModifLabelFirst) {
-            timeRow?.appendChild(timeRowLabel);
+            wrapper?.appendChild(timeRowLabel);
         }
 
-        timeRow?.appendChild(WHAT_IF_GRADES_TOGGLE_CHECKBOX);
+        wrapper?.appendChild(WHAT_IF_GRADES_TOGGLE_CHECKBOX);
 
         if (!gradeModifLabelFirst) {
-            timeRow?.appendChild(timeRowLabel);
+            wrapper?.appendChild(timeRowLabel);
         }
+
+        timeRow?.appendChild(wrapper);
     }
 }
 

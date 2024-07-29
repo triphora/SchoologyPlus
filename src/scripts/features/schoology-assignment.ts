@@ -116,7 +116,10 @@ export class SchoologyAssignment {
         this._elem_gradeModifiedIndicator = createElement(
             "span",
             ["splus-grades-modified-indicator"],
-            { textContent: "!" }
+            {
+                textContent: "!",
+                title: "This grade has been modified from its true value with Schoology Plus",
+            }
         );
         this._elem_whatIfTextBox = createElement("span", ["splus-grades-what-if-edit"], {
             textContent: "—",

@@ -1590,7 +1590,31 @@ Should not be shown
     }
 }
 
+@mixin button-hover-shadow($offset: 1px, $blur: 3px, $color: gray) {
+    cursor: pointer;
+
+    &:hover {
+        box-shadow: $offset $offset $blur $color;
+    }
+}
+
 .splus-what-if-grades-v2 {
+    $page: &;
+
+    .splus-grades-what-if-wrapper {
+        float: right;
+        background: var(--secondary, lightgray);
+        padding: 2px 5px;
+        border-radius: var(--border-radius, 5px);
+
+        input,
+        label {
+            cursor: pointer;
+        }
+
+        @include button-hover-shadow();
+    }
+
     .splus-grades-edit-indicator {
         cursor: pointer;
         vertical-align: top;
@@ -1607,7 +1631,8 @@ Should not be shown
         display: none;
     }
 
-    .splus-grades-modified-indicator {
+    .splus-grades-modified-indicator,
+    .splus-grades-course-modified-indicator {
         display: none;
     }
 
@@ -1677,8 +1702,7 @@ Should not be shown
             margin-left: 5px;
             padding: 1px 5px;
             border-radius: 5px;
-
-            @include tooltipped("This grade has been modified from its true value", none);
+            cursor: help;
         }
 
         .splus-grades-course-modified .splus-grades-course-modified-indicator {
@@ -1700,7 +1724,11 @@ Should not be shown
         }
 
         .splus-grades-method-indicator {
-            cursor: pointer;
+            @include button-hover-shadow();
+        }
+
+        .splus-grades-what-if-wrapper {
+            background: var(--active, lightblue);
         }
     }
 
