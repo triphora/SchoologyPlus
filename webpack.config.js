@@ -26,7 +26,7 @@ const commonConfig = {
             srcDir,
             "../node_modules/jquery-contextmenu/dist/jquery.contextMenu.min.css"
         ),
-        "lib/izitoast": path.join(srcDir, "../node_modules/iziToast/dist/css/iziToast.min.css"),
+        "lib/izitoast": path.join(srcDir, "../node_modules/izitoast/dist/css/iziToast.min.css"),
         "lib/materialize": path.join(
             srcDir,
             "../node_modules/materialize-css/dist/css/materialize.min.css"
